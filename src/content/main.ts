@@ -8,6 +8,50 @@ import { deepElementFromPoint, generateElementPath } from './capture/selector';
 import { getTextSelection } from './capture/text-selection';
 import { generateOutput, OutputLevel } from '../shared/markdown';
 import type { Annotation } from '../shared/types';
+import type { FrameworkInfo, SourceInfo } from './frameworks/types';
+import { AGENTATION_SOURCE } from '../shared/messaging';
+
+// === MAIN World Communication ===
+
+let detectedFrameworks: string[] = [];
+let pendingFrameworkResolve: ((info: FrameworkInfo | null) => void) | null = null;
+let pendingSourceResolve: ((info: SourceInfo | null) => void) | null = null;
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  const data = event.data;
+  if (!data || data.source !== AGENTATION_SOURCE) return;
+
+  switch (data.type) {
+    case 'AG_FRAMEWORK_DETECT_RESULT':
+      detectedFrameworks = data.payload.frameworks;
+      break;
+    case 'AG_COMPONENT_INFO':
+      pendingFrameworkResolve?.(data.payload);
+      pendingFrameworkResolve = null;
+      break;
+    case 'AG_SOURCE_INFO':
+      pendingSourceResolve?.(data.payload);
+      pendingSourceResolve = null;
+      break;
+  }
+});
+
+function requestComponentInfo(selector: string): Promise<FrameworkInfo | null> {
+  return new Promise(resolve => {
+    pendingFrameworkResolve = resolve;
+    window.postMessage({ source: AGENTATION_SOURCE, type: 'AG_COMPONENT_INFO_REQUEST', payload: { elementSelector: selector } }, '*');
+    setTimeout(() => { pendingFrameworkResolve = null; resolve(null); }, 2000);
+  });
+}
+
+function requestSourceInfo(selector: string): Promise<SourceInfo | null> {
+  return new Promise(resolve => {
+    pendingSourceResolve = resolve;
+    window.postMessage({ source: AGENTATION_SOURCE, type: 'AG_PROBE_SOURCE', payload: { elementSelector: selector } }, '*');
+    setTimeout(() => { pendingSourceResolve = null; resolve(null); }, 2000);
+  });
+}
 
 // Initialize
 const shadow = createAgentationHost();
@@ -89,11 +133,18 @@ document.body.addEventListener('click', (e) => {
 
 // === Popup Events ===
 
-popup.on('submit', (data: { comment: string; intent: string; severity: string }) => {
+popup.on('submit', async (data: { comment: string; intent: string; severity: string }) => {
   if (!pendingElement) return;
 
   const info = extractElementInfo(pendingElement);
   const textSel = getTextSelection();
+  const selector = info.selector!;
+
+  // Request framework + source info from MAIN world
+  const [frameworkInfo, sourceInfo] = await Promise.all([
+    detectedFrameworks.length > 0 ? requestComponentInfo(selector) : Promise.resolve(null),
+    detectedFrameworks.length > 0 ? requestSourceInfo(selector) : Promise.resolve(null),
+  ]);
 
   const annotation = store.add({
     ...info,
@@ -101,6 +152,8 @@ popup.on('submit', (data: { comment: string; intent: string; severity: string })
     intent: data.intent as any,
     severity: data.severity as any,
     selectedText: textSel?.text,
+    framework: frameworkInfo || undefined,
+    source: sourceInfo || undefined,
   });
 
   refreshMarkers();
