@@ -38,7 +38,7 @@ agentation-ext/
 │   ├── background/
 │   │   ├── service-worker.ts      # Background Service Worker
 │   │   ├── debugger.ts            # chrome.debugger → Source Map 获取
-│   │   └── native-messaging.ts    # 与本地 MCP Server 进程通信
+│   │   └── server-bridge.ts       # HTTP 通信 + SSE 命令监听
 │   ├── content/
 │   │   ├── main.ts                # Content Script 入口（isolated world）
 │   │   ├── main-world.ts          # MAIN world 注入脚本（冻结动画、框架探测）
@@ -71,12 +71,11 @@ agentation-ext/
 ├── packages/
 │   └── server/                    # 独立 Node.js 服务
 │       ├── src/
-│       │   ├── cli.ts             # CLI 入口（init / server / doctor）
+│       │   ├── cli.ts             # CLI 入口（init / start / doctor）
 │       │   ├── http-server.ts     # HTTP Server（接收标注、会话管理）
 │       │   ├── mcp-server.ts      # MCP Server（stdio，暴露 tools 给 AI 代理）
 │       │   ├── store.ts           # 数据持久化（SQLite / 内存回退）
 │       │   └── events.ts          # SSE 事件流
-│       ├── native-host.json       # Native Messaging Host 清单
 │       └── package.json
 ├── package.json
 ├── tsconfig.json
@@ -89,7 +88,7 @@ agentation-ext/
 ```json
 {
   "manifest_version": 3,
-  "permissions": ["activeTab", "debugger", "clipboardWrite", "storage", "nativeMessaging", "scripting"],
+  "permissions": ["activeTab", "debugger", "clipboardWrite", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [{
     "matches": ["<all_urls>"],
@@ -196,7 +195,7 @@ interface Annotation {
   // 多选标记
   isMultiSelect?: boolean;
   elementBoundingBoxes?: Array<{ x: number; y: number; width: number; height: number }>;
-  isFixed?: boolean;          // 元素是否 fixed 定位
+  isFixed?: boolean;          // 元素是否 fixed 定位（影响高亮框跟随逻辑：fixed 元素不随滚动移动）
 
   // 协议字段（与服务器同步时使用）
   sessionId?: string;
@@ -217,7 +216,7 @@ interface Annotation {
 
 **浏览器端**：
 - **运行时**：标注数据存储在 Content Script 的内存数组中，per-tab 隔离
-- **本地持久化**：标注通过 `localStorage` 存储，key 为 `agentation-annotations-{pathname}`，7 天保留策略
+- **本地持久化**：标注通过 `localStorage` 存储，key 为 `agentation-annotations-{pathname}`，7 天保留策略。注意：Content Script 的 `localStorage` 与页面共享，页面调用 `localStorage.clear()` 会清除标注数据。这是对齐 agentation 原版行为的设计选择；服务端同步可作为持久化保障
 - **会话 ID**：通过 `localStorage`（`agentation-session-{pathname}`）持久化
 - **工具栏状态**：通过 `sessionStorage` 存储（per-tab，标签页关闭即清除）
 - **用户设置**：通过 `chrome.storage.local` 存储（主题、输出级别、Source Map 开关、React 过滤模式等）
@@ -241,11 +240,14 @@ interface Annotation {
 ```markdown
 ## Annotation #1 — "按钮颜色改成蓝色"
 **Element:** `<button class="btn btn-primary">` "Submit Order"
+**Selected text:** "Submit"  ← 仅在用户选中文本时出现
 **Path:** `main > .user-panel > button.btn-primary`
 **Component:** `<OrderForm>` (Vue 3)
 **Source:** `src/components/OrderForm.vue:87:5`
 **Location:** x=420, y=380
 ```
+
+> **selectedText 展示规则**：当用户通过文本选择模式标注时，所有级别（含 compact）都展示选中文本。Compact 格式中追加 `[selected: "xxx"]`，其他格式用独立行 `**Selected text:**`。
 
 **Detailed** — 加 CSS 类名、boundingBox、上下文：
 ```markdown
@@ -551,6 +553,7 @@ agentation-server init
 
 # 启动服务器（HTTP + MCP）
 agentation-server start
+# 等同于 agentation-server start --port 4747
 
 # 仅 MCP 模式（Claude Code 直接管理进程）
 # 在 Claude Code MCP 配置中添加：
@@ -606,9 +609,26 @@ Chrome 扩展的 Background Service Worker 通过 HTTP 与服务器交互：
 | `/sessions/:id/action` | POST | 请求 AI 代理执行动作 |
 | `/annotations/:id` | PATCH | 更新标注 |
 | `/annotations/:id` | DELETE | 删除标注 |
-| `/events` | GET (SSE) | 实时事件流 |
+| `/events` | GET (SSE) | 实时事件流（含服务器→扩展的命令） |
+| `/commands/:id/result` | POST | 扩展提交命令执行结果 |
 
-### 6.5 MCP Tools
+### 6.5 服务器→扩展通信（SSE 命令通道）
+
+`take_screenshot` 和 `get_page_info` 需要服务器主动向浏览器扩展发送请求。通过 SSE 事件流实现：
+
+```
+AI 代理调用 take_screenshot
+  → MCP Server 在 HTTP Server 创建 command 记录
+  → SSE 推送 { type: "command.requested", command: "take_screenshot", commandId: "xxx" }
+  → Background Service Worker（长连接 SSE 监听）收到命令
+  → 调用 chrome.tabs.captureVisibleTab() 截图
+  → HTTP POST /commands/xxx/result 提交结果（base64 图片）
+  → MCP Server 收到结果，返回给 AI 代理
+```
+
+Background Service Worker 启动时建立到 HTTP Server 的 SSE 长连接，监听 `command.requested` 事件。Service Worker 休眠后 SSE 连接断开，下次 HTTP 请求时自动重连。
+
+### 6.6 MCP Tools
 
 与 agentation 对齐的 9 个 tools + 扩展的 2 个工具：
 
