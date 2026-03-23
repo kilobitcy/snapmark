@@ -42,10 +42,10 @@ agentation-ext/
 │   ├── content/
 │   │   ├── main.ts                # Content Script 入口（isolated world）
 │   │   ├── main-world.ts          # MAIN world 注入脚本（冻结动画、框架探测）
-│   │   ├── ui/                    # UI 组件（工具栏、覆盖层、弹窗）
-│   │   │   ├── toolbar.ts
-│   │   │   ├── overlay.ts
-│   │   │   ├── annotation-popup.ts
+│   │   ├── ui/                    # UI 组件（工具栏、高亮、弹窗）
+│   │   │   ├── toolbar.ts         # 工具栏（44px 徽章 ↔ 展开面板）
+│   │   │   ├── highlight.ts       # 悬停高亮框 + 标注标记
+│   │   │   ├── annotation-popup.ts # 标注评论输入弹窗
 │   │   │   └── styles.css
 │   │   ├── capture/               # 数据采集
 │   │   │   ├── selector.ts        # CSS 选择器生成
@@ -416,19 +416,56 @@ MAIN World Script                  Content Script              Background Servic
 
 ## 5. UI 交互与样式隔离
 
-### 激活/停用模型
+### 激活/停用模型（对齐 agentation）
 
 扩展有两个状态：**停用**（默认）和**激活**。
 
-- **停用状态**：所有事件透传给页面，不拦截任何交互。工具栏仅显示激活按钮。
-- **激活状态**：覆盖层启用 `pointer-events`，拦截页面点击用于标注。通过 `event.preventDefault()` 和 `event.stopPropagation()` 阻止默认浏览器行为。
-- 切换方式：点击工具栏按钮，或键盘快捷键 `Alt+A`（可配置）。
+- **停用状态**：工具栏收缩为 **44px 圆形徽章**，浮动在页面右下角。所有事件透传给页面，不拦截任何交互。点击徽章展开工具栏并激活。
+- **激活状态**：工具栏展开为完整面板。在 `document.body` 上监听 `click`/`mousemove` 事件，当 `blockInteractions` 设置开启时，通过 `event.preventDefault()` 和 `event.stopPropagation()` 阻止页面默认交互。使用 `deepElementFromPoint()` 穿透 Shadow DOM 获取真实目标元素。
+- 切换方式：点击工具栏收缩/展开按钮，或键盘快捷键 `Cmd/Ctrl+Shift+F`。
+- 工具栏可**拖拽**移动位置（约束在视口内，20px 边距），位置记忆。
+
+### 工具栏按钮布局
+
+激活后工具栏展开，按钮从左到右：
+
+| 按钮 | 图标 | 功能 |
+|------|------|------|
+| 标记显隐 | 眼睛 | 显示/隐藏已有的标注标记 |
+| 冻结动画 | 暂停/播放 | 冻结/恢复页面动画 |
+| 设置 | 齿轮 | 打开设置面板（输出级别、React 过滤模式、blockInteractions 等） |
+| 复制 | 复制 | 生成 Markdown 输出并复制到剪贴板 |
+| 发送 | 箭头 | 发送到服务器/webhook |
+| 清除 | 垃圾桶 | 清空所有标注 |
+
+工具栏头部显示：连接状态指示灯 + 标注数量。
+
+### 标注创建流程
+
+```
+用户点击页面元素
+  → deepElementFromPoint() 穿透 Shadow DOM 获取真实目标
+  → 提取元素元数据（名称、路径、类名、文本、样式、无障碍信息）
+  → 设置 pendingAnnotation 状态
+  → 弹出标注输入框（AnnotationPopup 组件）
+  → 用户输入评论、选择 intent/severity
+  → 用户提交 → 创建正式标注 + 显示标记
+  → 用户取消 → 清除 pendingAnnotation，不创建标注
+```
+
+### 悬停高亮
+
+激活状态下，鼠标移动时实时检测悬停元素：
+- 调用 `deepElementFromPoint()` 获取目标元素
+- 显示高亮框（边框 + 半透明背景）跟随目标
+- 工具提示显示元素标识（如 `button.btn-primary`）
+- 自定义光标：普通元素显示十字准星，文本元素显示文本光标
 
 ### 交互模式
 
 | 模式 | 触发 | 行为 |
 |------|------|------|
-| **单击标注** | 工具栏激活后点击元素 | 高亮元素、弹出标注输入框 |
+| **单击标注** | 激活后点击元素 | 弹出评论输入框，提交后创建标注 |
 | **文本选择** | 选中页面文本后点击标注 | 捕获选中文本及其所在元素 |
 | **多选模式** | `Cmd/Ctrl+Shift+Click` 切换元素 + 拖拽框选 | 框选区域内所有元素，生成单个多元素标注 |
 | **区域标注** | 工具栏切换区域模式 | 自由绘制矩形区域 |
@@ -488,17 +525,19 @@ shadow.innerHTML = `
 document.body.appendChild(host);
 ```
 
-### 覆盖层结构
+### UI 结构
 
 ```
 页面 DOM
   └── agentation-root (Custom Element)
         └── Shadow DOM
-              ├── #toolbar        — 工具栏浮窗（fixed 定位）
-              ├── #overlay        — 透明覆盖层（pointer-events 按需切换）
-              ├── #highlights     — 元素高亮框（absolute，跟随目标元素）
-              └── #popups         — 标注弹窗
+              ├── #toolbar        — 工具栏浮窗（fixed 定位，可拖拽）
+              ├── #highlights     — 元素高亮框（fixed/absolute，跟随目标元素）
+              ├── #markers        — 标注标记（编号圆点，标注位置处）
+              └── #popups         — 标注输入弹窗
 ```
+
+**注意**：不使用透明覆盖层拦截事件（对齐 agentation）。事件拦截通过在 `document.body` 上设置 `click`/`mousemove` 监听器实现，配合 `deepElementFromPoint()` 穿透 Shadow DOM 获取真实元素。这样避免了覆盖层带来的层级冲突和事件穿透问题。
 
 ### 主题
 
