@@ -646,7 +646,7 @@ Background Service Worker 启动时建立到 HTTP Server 的 SSE 长连接，监
 | `get_page_info` | 获取当前页面信息 | — |
 | `take_screenshot` | 截取当前页面 | `fullPage?` |
 
-### 6.6 AI 代理自动化工作流
+### 6.7 AI 代理自动化工作流
 
 `watch_annotations` 是 AI 代理的核心循环工具：
 
