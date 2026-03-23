@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><title>Vue Test App</title></head>
+<body>
+  <div id="app">
+    <main>
+      <h1>Vue Test App</h1>
+      <div class="user-card" v-for="user in users" :key="user.name" data-testid="user-card">
+        <h2>{{ user.name }}</h2>
+        <button class="btn-primary" @click="edit(user)">Edit Profile</button>
+        <p>{{ user.description }}</p>
+      </div>
+    </main>
+  </div>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    Vue.createApp({
+      data() {
+        return {
+          users: [
+            { name: 'John Doe', description: 'Some description' },
+            { name: 'Jane Smith', description: 'Another description' },
+          ],
+        };
+      },
+      methods: {
+        edit(user) { alert('Editing ' + user.name); },
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>

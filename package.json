@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "test:e2e": "playwright test"
   },
   "packageManager": "pnpm@10.20.0",
   "devDependencies": {
     "@crxjs/vite-plugin": "2.4.0",
+    "@playwright/test": "^1.58.2",
     "@types/chrome": "^0.1.38",
     "@vitest/browser": "^2.1.9",
     "jsdom": "^29.0.1",

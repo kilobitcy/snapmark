@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head><title>React Test App</title></head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'https://esm.sh/react@18';
+    import ReactDOM from 'https://esm.sh/react-dom@18/client';
+    import { createElement as h } from 'https://esm.sh/react@18';
+
+    function UserCard({ name }) {
+      return h('div', { className: 'user-card', 'data-testid': 'user-card' },
+        h('h2', null, name),
+        h('button', { className: 'btn-primary', onClick: () => alert('clicked') }, 'Edit Profile'),
+        h('p', null, 'Some description text')
+      );
+    }
+
+    function App() {
+      return h('main', { id: 'app' },
+        h('h1', null, 'Test App'),
+        h(UserCard, { name: 'John Doe' }),
+        h(UserCard, { name: 'Jane Smith' })
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(h(App));
+  </script>
+</body>
+</html>
