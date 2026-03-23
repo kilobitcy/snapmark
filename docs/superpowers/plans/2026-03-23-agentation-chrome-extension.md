@@ -53,10 +53,27 @@ packages:
 - [ ] **Step 2: Install dependencies**
 
 ```bash
-pnpm add -D typescript vite @crxjs/vite-plugin@beta vitest @types/chrome
+pnpm add -D typescript vite @crxjs/vite-plugin@beta vitest @vitest/browser jsdom @types/chrome
 ```
 
-- [ ] **Step 3: Create tsconfig.json**
+- [ ] **Step 3: Create vitest.config.ts**
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/__tests__/**/*.test.ts'],
+  },
+});
+```
+
+> **Important**: All DOM-based tests (Tasks 4-12, 24) require `jsdom` environment. Without this config, `document`, `window`, `localStorage` etc. are undefined and tests will fail.
+
+- [ ] **Step 5: Create tsconfig.json**
 
 ```json
 {
@@ -78,7 +95,7 @@ pnpm add -D typescript vite @crxjs/vite-plugin@beta vitest @types/chrome
 }
 ```
 
-- [ ] **Step 4: Create manifest.json**
+- [ ] **Step 6: Create manifest.json**
 
 ```json
 {
@@ -108,7 +125,7 @@ pnpm add -D typescript vite @crxjs/vite-plugin@beta vitest @types/chrome
 }
 ```
 
-- [ ] **Step 5: Create vite.config.ts**
+- [ ] **Step 7: Create vite.config.ts**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -127,7 +144,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Create stub entry files**
+- [ ] **Step 8: Create stub entry files and placeholder icons**
 
 Create empty stub files so the project builds:
 - `src/content/main.ts` → `console.log('[agentation] content script loaded');`
@@ -135,8 +152,9 @@ Create empty stub files so the project builds:
 - `src/background/service-worker.ts` → `console.log('[agentation] service worker loaded');`
 - `src/popup/popup.html` → minimal HTML
 - `src/popup/popup.ts` → empty
+- `src/icons/icon16.png`, `icon48.png`, `icon128.png` → placeholder PNG icons (simple colored square)
 
-- [ ] **Step 7: Verify build**
+- [ ] **Step 9: Verify build**
 
 ```bash
 pnpm build
@@ -144,7 +162,7 @@ pnpm build
 
 Expected: Build succeeds, `dist/` contains extension files.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add -A
@@ -862,6 +880,15 @@ describe('HighlightManager', () => {
     manager.removeMarker('a1');
     expect(markerContainer.querySelector('.ag-marker')).toBeNull();
   });
+
+  it('shows tooltip with element identifier on hover highlight', () => {
+    document.body.innerHTML += '<button id="t3" class="btn-primary">Click</button>';
+    const el = document.getElementById('t3')!;
+    manager.showHoverHighlight(el, 'button.btn-primary');
+    const tooltip = highlightContainer.querySelector('.ag-hover-tooltip');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip?.textContent).toContain('button.btn-primary');
+  });
 });
 ```
 
@@ -870,13 +897,17 @@ describe('HighlightManager', () => {
 - [ ] **Step 3: Implement highlight.ts**
 
 Create `src/content/ui/highlight.ts`:
-- `class HighlightManager` — manages hover highlights and annotation markers
-- `showHoverHighlight(el: Element)` — positions highlight box over target using `getBoundingClientRect()`, accounts for `isFixed`
-- `clearHoverHighlight()`
+- `class HighlightManager` — manages hover highlights, tooltips, and annotation markers
+- `showHoverHighlight(el: Element, elementName?: string)` — positions highlight box over target using `getBoundingClientRect()`, accounts for `isFixed`. Shows tooltip with `elementName` (e.g. `button.btn-primary`)
+- `clearHoverHighlight()` — removes highlight and tooltip
 - `addMarker(id: string, position: {x, y}, number: number)` — numbered circle at annotation position
 - `removeMarker(id: string)`
 - `clearAllMarkers()`
 - `updatePositions()` — recalculate on scroll/resize
+
+Also in the content script, set custom cursors when active:
+- `document.body.style.cursor = 'crosshair'` for general elements
+- `cursor: text` when hovering over text-only elements (detect via `el.childNodes` containing only text nodes)
 
 - [ ] **Step 4: Run tests, commit**
 
@@ -1683,17 +1714,30 @@ git add -A && git commit -m "feat: add HTTP server with REST API + SSE events"
 
 ```typescript
 // packages/server/src/__tests__/mcp-server.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { createMcpTools } from '../mcp-server';
 import { createStore } from '../store';
 
 describe('MCP Tools', () => {
-  const store = createStore(':memory:');
-  const tools = createMcpTools(store);
+  let store: ReturnType<typeof createStore>;
+  let tools: ReturnType<typeof createMcpTools>;
+
+  beforeEach(() => {
+    store = createStore(':memory:');
+    tools = createMcpTools(store);
+  });
 
   it('list_sessions returns empty array initially', async () => {
     const result = await tools.list_sessions({});
     expect(JSON.parse(result.content[0].text)).toEqual([]);
+  });
+
+  it('get_session returns session with annotations', async () => {
+    const s = store.createSession('http://test.com');
+    store.addAnnotation(s.id, { comment: 'fix' } as any);
+    const result = await tools.get_session({ sessionId: s.id });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.annotations).toHaveLength(1);
   });
 
   it('get_pending returns pending annotations', async () => {
@@ -1702,6 +1746,16 @@ describe('MCP Tools', () => {
     const result = await tools.get_pending({ sessionId: s.id });
     const annotations = JSON.parse(result.content[0].text);
     expect(annotations).toHaveLength(1);
+  });
+
+  it('get_all_pending returns pending across sessions', async () => {
+    const s1 = store.createSession('http://a.com');
+    const s2 = store.createSession('http://b.com');
+    store.addAnnotation(s1.id, { comment: 'a' } as any);
+    store.addAnnotation(s2.id, { comment: 'b' } as any);
+    const result = await tools.get_all_pending({});
+    const all = JSON.parse(result.content[0].text);
+    expect(all).toHaveLength(2);
   });
 
   it('acknowledge changes status', async () => {
@@ -1719,6 +1773,13 @@ describe('MCP Tools', () => {
     expect(ann?.status).toBe('resolved');
   });
 
+  it('dismiss changes status with reason', async () => {
+    const s = store.createSession('http://test.com');
+    const a = store.addAnnotation(s.id, { comment: 'z' } as any);
+    await tools.dismiss({ annotationId: a.id, reason: 'Not a bug' });
+    expect(store.getAnnotation(a.id)?.status).toBe('dismissed');
+  });
+
   it('reply adds thread message', async () => {
     const s = store.createSession('http://test.com');
     const a = store.addAnnotation(s.id, { comment: 'z' } as any);
@@ -1726,6 +1787,62 @@ describe('MCP Tools', () => {
     const ann = store.getAnnotation(a.id);
     expect(ann?.thread).toHaveLength(1);
     expect(ann?.thread?.[0].role).toBe('agent');
+  });
+});
+
+describe('watch_annotations', () => {
+  let store: ReturnType<typeof createStore>;
+  let tools: ReturnType<typeof createMcpTools>;
+
+  beforeEach(() => {
+    store = createStore(':memory:');
+    tools = createMcpTools(store);
+  });
+
+  it('returns new annotations within batch window', async () => {
+    const s = store.createSession('http://test.com');
+
+    // Start watch in background, add annotation after small delay
+    const watchPromise = tools.watch_annotations({
+      sessionId: s.id, batchWindowSeconds: 1, timeoutSeconds: 5,
+    });
+
+    // Simulate annotation arriving after 100ms
+    setTimeout(() => {
+      store.addAnnotation(s.id, { comment: 'new feedback' } as any);
+    }, 100);
+
+    const result = await watchPromise;
+    const annotations = JSON.parse(result.content[0].text);
+    expect(annotations.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('times out and returns empty when no annotations arrive', async () => {
+    const s = store.createSession('http://test.com');
+    const result = await tools.watch_annotations({
+      sessionId: s.id, batchWindowSeconds: 1, timeoutSeconds: 1,
+    });
+    const annotations = JSON.parse(result.content[0].text);
+    expect(annotations).toHaveLength(0);
+  });
+
+  it('batches multiple annotations within batch window', async () => {
+    const s = store.createSession('http://test.com');
+
+    const watchPromise = tools.watch_annotations({
+      sessionId: s.id, batchWindowSeconds: 2, timeoutSeconds: 5,
+    });
+
+    setTimeout(() => {
+      store.addAnnotation(s.id, { comment: 'first' } as any);
+    }, 100);
+    setTimeout(() => {
+      store.addAnnotation(s.id, { comment: 'second' } as any);
+    }, 200);
+
+    const result = await watchPromise;
+    const annotations = JSON.parse(result.content[0].text);
+    expect(annotations).toHaveLength(2);
   });
 });
 ```
@@ -1793,10 +1910,12 @@ git commit -m "feat: add CLI (init, start, doctor)"
 
 ```typescript
 // src/content/__tests__/freeze.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { freezePage, unfreezePage } from '../freeze';
 
 describe('freezePage', () => {
+  afterEach(() => { unfreezePage(); document.body.innerHTML = ''; });
+
   it('pauses CSS animations', () => {
     document.body.innerHTML = '<div style="animation: spin 1s infinite">test</div>';
     freezePage();
@@ -1804,12 +1923,35 @@ describe('freezePage', () => {
     expect(getComputedStyle(el).animationPlayState).toBe('paused');
   });
 
+  it('sets transition-duration to 0s', () => {
+    document.body.innerHTML = '<div style="transition: all 0.3s">test</div>';
+    freezePage();
+    const el = document.querySelector('div')!;
+    expect(el.style.transitionDuration).toBe('0s');
+  });
+
   it('excludes agentation UI elements', () => {
     document.body.innerHTML = '<div data-agentation style="animation: spin 1s infinite">toolbar</div>';
     freezePage();
     const el = document.querySelector('[data-agentation]')!;
-    // Should not be paused
     expect(el.style.animationPlayState).not.toBe('paused');
+  });
+
+  it('monkey-patches setTimeout/setInterval/rAF', () => {
+    const originalSetTimeout = window.setTimeout;
+    freezePage();
+    // After freeze, new setTimeout calls should be queued, not executed
+    expect(window.setTimeout).not.toBe(originalSetTimeout);
+    unfreezePage();
+    expect(window.setTimeout).toBe(originalSetTimeout);
+  });
+
+  it('pauses video elements', () => {
+    document.body.innerHTML = '<video id="v"><source src="test.mp4"></video>';
+    const video = document.getElementById('v') as HTMLVideoElement;
+    const pauseSpy = vi.spyOn(video, 'pause');
+    freezePage();
+    expect(pauseSpy).toHaveBeenCalled();
   });
 
   it('restores on unfreeze', () => {
