@@ -1,12 +1,82 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8">
   <title>Agentation Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 320px; font-family: system-ui, sans-serif; padding: 16px; background: #fff; color: #1a1a1a; }
+    h1 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    h1 span { color: #3b82f6; }
+    .setting { margin-bottom: 12px; }
+    .setting label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .setting select, .setting input[type="text"] {
+      width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 13px; background: #fafafa;
+    }
+    .setting select:focus, .setting input:focus { outline: none; border-color: #3b82f6; }
+    .toggle { display: flex; align-items: center; justify-content: space-between; }
+    .toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: #3b82f6; }
+    .status { margin-top: 16px; padding: 8px; background: #f5f5f5; border-radius: 6px; font-size: 12px; color: #888; }
+    .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .dot.connected { background: #22c55e; }
+    .dot.disconnected { background: #ef4444; }
+    .version { margin-top: 12px; text-align: center; font-size: 11px; color: #ccc; }
+  </style>
 </head>
 <body>
-  <h1>Agentation Settings</h1>
-  <script type="module" src="./popup.ts"></script>
+  <h1><span>A</span> Agentation</h1>
+
+  <div class="setting">
+    <label>Output Detail Level</label>
+    <select id="outputLevel">
+      <option value="compact">Compact</option>
+      <option value="standard" selected>Standard</option>
+      <option value="detailed">Detailed</option>
+      <option value="forensic">Forensic</option>
+    </select>
+  </div>
+
+  <div class="setting">
+    <label>React Filter Mode</label>
+    <select id="reactFilter">
+      <option value="all">All</option>
+      <option value="filtered" selected>Filtered</option>
+      <option value="smart">Smart</option>
+    </select>
+  </div>
+
+  <div class="setting">
+    <label>Theme</label>
+    <select id="theme">
+      <option value="auto" selected>Auto (follow system)</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </div>
+
+  <div class="setting toggle">
+    <label>Block Page Interactions</label>
+    <input type="checkbox" id="blockInteractions" checked>
+  </div>
+
+  <div class="setting toggle">
+    <label>Source Map Resolution</label>
+    <input type="checkbox" id="sourceMap" checked>
+  </div>
+
+  <div class="setting">
+    <label>Server URL</label>
+    <input type="text" id="serverUrl" value="http://localhost:4747" placeholder="http://localhost:4747">
+  </div>
+
+  <div class="status">
+    <span class="dot disconnected" id="statusDot"></span>
+    <span id="statusText">Not connected</span>
+  </div>
+
+  <div class="version">v0.1.0</div>
+
+  <script src="popup.ts"></script>
 </body>
 </html>
