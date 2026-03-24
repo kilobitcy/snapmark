@@ -22,7 +22,7 @@ describe('HTTP Server', () => {
       body: JSON.stringify({ url: 'http://test.com' }),
     });
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.id).toBeDefined();
     expect(data.status).toBe('active');
   });
@@ -30,7 +30,7 @@ describe('HTTP Server', () => {
   it('GET /sessions lists sessions', async () => {
     const res = await fetch(`${baseUrl}/sessions`);
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
   });
@@ -40,11 +40,11 @@ describe('HTTP Server', () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'http://detail.com' }),
     });
-    const session = await sRes.json();
+    const session = await sRes.json() as any;
 
     const res = await fetch(`${baseUrl}/sessions/${session.id}`);
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.annotations).toBeDefined();
   });
 
@@ -53,14 +53,14 @@ describe('HTTP Server', () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'http://ann.com' }),
     });
-    const session = await sRes.json();
+    const session = await sRes.json() as any;
 
     const res = await fetch(`${baseUrl}/sessions/${session.id}/annotations`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment: 'Fix this', elementTag: 'button' }),
     });
     expect(res.status).toBe(201);
-    const ann = await res.json();
+    const ann = await res.json() as any;
     expect(ann.id).toBeDefined();
   });
 
@@ -69,19 +69,19 @@ describe('HTTP Server', () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'http://patch.com' }),
     });
-    const session = await sRes.json();
+    const session = await sRes.json() as any;
     const aRes = await fetch(`${baseUrl}/sessions/${session.id}/annotations`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment: 'Original' }),
     });
-    const annotation = await aRes.json();
+    const annotation = await aRes.json() as any;
 
     const res = await fetch(`${baseUrl}/annotations/${annotation.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'acknowledged' }),
     });
     expect(res.status).toBe(200);
-    const updated = await res.json();
+    const updated = await res.json() as any;
     expect(updated.status).toBe('acknowledged');
   });
 
@@ -90,12 +90,12 @@ describe('HTTP Server', () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'http://del.com' }),
     });
-    const session = await sRes.json();
+    const session = await sRes.json() as any;
     const aRes = await fetch(`${baseUrl}/sessions/${session.id}/annotations`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment: 'Delete me' }),
     });
-    const annotation = await aRes.json();
+    const annotation = await aRes.json() as any;
 
     const res = await fetch(`${baseUrl}/annotations/${annotation.id}`, { method: 'DELETE' });
     expect(res.status).toBe(204);
