@@ -3,7 +3,7 @@
   "name": "Agentation",
   "version": "0.1.0",
   "description": "Visual feedback for AI coding agents",
-  "permissions": ["activeTab", "debugger", "clipboardWrite", "storage", "scripting"],
+  "permissions": ["activeTab", "clipboardWrite", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [{
     "matches": ["<all_urls>"],

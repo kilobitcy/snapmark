@@ -30,20 +30,6 @@ describe('messaging', () => {
     expect(isMainWorldMessage('string')).toBe(false);
   });
 
-  it('should create all extension message types', () => {
-    const m1 = createExtensionMessage('RESOLVE_SOURCEMAP', { scriptUrl: 'x', funcSignature: 'y' });
-    expect(m1.type).toBe('RESOLVE_SOURCEMAP');
-
-    const m2 = createExtensionMessage('DEBUGGER_ATTACH', { tabId: 1 });
-    expect(m2.type).toBe('DEBUGGER_ATTACH');
-
-    const m3 = createExtensionMessage('SYNC_ANNOTATION', { sessionId: 's1', annotation: {} as any });
-    expect(m3.type).toBe('SYNC_ANNOTATION');
-
-    const m4 = createExtensionMessage('CREATE_SESSION', { url: 'http://test.com' });
-    expect(m4.type).toBe('CREATE_SESSION');
-  });
-
   it('should create all main world message types', () => {
     const m1 = createMainWorldMessage('AG_FRAMEWORK_DETECT_RESULT', { frameworks: ['react'] });
     expect(m1.payload.frameworks).toContain('react');

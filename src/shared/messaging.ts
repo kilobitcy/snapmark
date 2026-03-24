@@ -1,23 +1,11 @@
-import type { Annotation, AnnotationStatus } from './types';
-
 export const AGENTATION_SOURCE = 'agentation' as const;
 
-// === Extension Messages (Content Script ↔ Background Service Worker) ===
+// === Extension Messages (Content Script <-> Background Service Worker) ===
 
 export type ExtensionMessage =
-  // Content Script → Background
-  | { type: 'RESOLVE_SOURCEMAP'; payload: { scriptUrl: string; funcSignature: string } }
-  | { type: 'COPY_TO_CLIPBOARD'; payload: { text: string } }
-  | { type: 'DEBUGGER_ATTACH'; payload: { tabId: number } }
-  | { type: 'DEBUGGER_DETACH'; payload: { tabId: number } }
-  | { type: 'SYNC_ANNOTATION'; payload: { sessionId: string; annotation: Annotation } }
-  | { type: 'CREATE_SESSION'; payload: { url: string } }
-  // Background → Content Script
-  | { type: 'SOURCEMAP_RESULT'; payload: { file: string; line: number; column: number } | null }
-  | { type: 'SESSION_CREATED'; payload: { sessionId: string } }
-  | { type: 'ANNOTATION_STATUS_CHANGED'; payload: { annotationId: string; status: AnnotationStatus } };
+  | { type: 'COPY_TO_CLIPBOARD'; payload: { text: string } };
 
-// === Main World Messages (MAIN World ↔ Content Script via window.postMessage) ===
+// === Main World Messages (MAIN World <-> Content Script via window.postMessage) ===
 
 export type MainWorldMessagePayload =
   | { type: 'AG_FRAMEWORK_DETECT_RESULT'; payload: { frameworks: string[] } }

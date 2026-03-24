@@ -17,10 +17,6 @@
     .setting select:focus, .setting input:focus { outline: none; border-color: #3b82f6; }
     .toggle { display: flex; align-items: center; justify-content: space-between; }
     .toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: #3b82f6; }
-    .status { margin-top: 16px; padding: 8px; background: #f5f5f5; border-radius: 6px; font-size: 12px; color: #888; }
-    .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-    .dot.connected { background: #22c55e; }
-    .dot.disconnected { background: #ef4444; }
     .version { margin-top: 12px; text-align: center; font-size: 11px; color: #ccc; }
   </style>
 </head>
@@ -58,21 +54,6 @@
   <div class="setting toggle">
     <label>Block Page Interactions</label>
     <input type="checkbox" id="blockInteractions" checked>
-  </div>
-
-  <div class="setting toggle">
-    <label>Source Map Resolution</label>
-    <input type="checkbox" id="sourceMap" checked>
-  </div>
-
-  <div class="setting">
-    <label>Server URL</label>
-    <input type="text" id="serverUrl" value="http://localhost:4747" placeholder="http://localhost:4747">
-  </div>
-
-  <div class="status">
-    <span class="dot disconnected" id="statusDot"></span>
-    <span id="statusText">Not connected</span>
   </div>
 
   <div class="version">v0.1.0</div>

@@ -1,11 +1,8 @@
-// Settings keys in chrome.storage.local
 interface Settings {
   outputLevel: 'compact' | 'standard' | 'detailed' | 'forensic';
   reactFilter: 'all' | 'filtered' | 'smart';
   theme: 'auto' | 'light' | 'dark';
   blockInteractions: boolean;
-  sourceMap: boolean;
-  serverUrl: string;
 }
 
 const DEFAULTS: Settings = {
@@ -13,8 +10,6 @@ const DEFAULTS: Settings = {
   reactFilter: 'filtered',
   theme: 'auto',
   blockInteractions: true,
-  sourceMap: true,
-  serverUrl: 'http://localhost:4747',
 };
 
 async function loadSettings(): Promise<Settings> {
@@ -34,15 +29,6 @@ async function saveSettings(settings: Settings): Promise<void> {
   }
 }
 
-async function checkServer(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${url}/sessions`, { signal: AbortSignal.timeout(3000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 async function init() {
   const settings = await loadSettings();
 
@@ -51,11 +37,9 @@ async function init() {
   (document.getElementById('reactFilter') as HTMLSelectElement).value = settings.reactFilter;
   (document.getElementById('theme') as HTMLSelectElement).value = settings.theme;
   (document.getElementById('blockInteractions') as HTMLInputElement).checked = settings.blockInteractions;
-  (document.getElementById('sourceMap') as HTMLInputElement).checked = settings.sourceMap;
-  (document.getElementById('serverUrl') as HTMLInputElement).value = settings.serverUrl;
 
   // Auto-save on change
-  const elements = ['outputLevel', 'reactFilter', 'theme', 'blockInteractions', 'sourceMap', 'serverUrl'];
+  const elements = ['outputLevel', 'reactFilter', 'theme', 'blockInteractions'];
   for (const id of elements) {
     const el = document.getElementById(id)!;
     el.addEventListener('change', async () => {
@@ -69,18 +53,6 @@ async function init() {
       }
       await saveSettings(current);
     });
-  }
-
-  // Check server status
-  const connected = await checkServer(settings.serverUrl);
-  const dot = document.getElementById('statusDot')!;
-  const text = document.getElementById('statusText')!;
-  if (connected) {
-    dot.className = 'dot connected';
-    text.textContent = 'Connected';
-  } else {
-    dot.className = 'dot disconnected';
-    text.textContent = 'Not connected';
   }
 }
 
