@@ -6,6 +6,13 @@ chrome.runtime.onMessage.addListener((message) => {
       // For now, the content script handles clipboard directly
       break;
     }
+    case 'OPEN_SETTINGS': {
+      chrome.action.openPopup().catch(() => {
+        // Fallback: open popup.html in a new tab if openPopup is unavailable
+        chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
+      });
+      break;
+    }
   }
 });
 

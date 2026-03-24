@@ -10,6 +10,7 @@ import { generateOutput, OutputLevel } from '../shared/markdown';
 import type { Annotation } from '../shared/types';
 import type { FrameworkInfo, SourceInfo } from './frameworks/types';
 import { AGENTATION_SOURCE } from '../shared/messaging';
+import { freezePage, unfreezePage, isFrozen } from './freeze';
 
 // === MAIN World Communication ===
 
@@ -142,7 +143,18 @@ toolbar.on('toggle', () => {
 
 toolbar.on('copy', () => {
   const md = generateOutput(store.getAll(), outputLevel);
-  navigator.clipboard.writeText(md).catch(() => {});
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(md).catch(() => {});
+  } else {
+    // Fallback for non-secure contexts (HTTP pages)
+    const ta = document.createElement('textarea');
+    ta.value = md;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
 });
 
 toolbar.on('clear', () => {
@@ -151,18 +163,28 @@ toolbar.on('clear', () => {
 });
 
 toolbar.on('freeze', () => {
-  // Will be wired to MAIN world in Task 17
+  if (isFrozen()) {
+    unfreezePage();
+  } else {
+    freezePage();
+  }
 });
 
-toolbar.on('settings', () => {
-  // Toggle area annotation mode
+toolbar.on('markersToggle', () => {
+  highlights.toggleMarkers();
+});
+
+toolbar.on('areaMode', () => {
   areaMode = !areaMode;
   if (!areaMode) {
-    // Clean up any in-progress area drag
     if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
     areaDragging = false;
   }
   document.body.style.cursor = areaMode ? 'crosshair' : '';
+});
+
+toolbar.on('settings', () => {
+  chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' });
 });
 
 // === Mouse Events (when active) ===

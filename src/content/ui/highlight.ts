@@ -4,6 +4,7 @@ export class HighlightManager {
   private hoverEl: HTMLElement | null = null;
   private tooltipEl: HTMLElement | null = null;
   private markers = new Map<string, HTMLElement>();
+  private markersVisible = true;
 
   constructor(highlightContainer: HTMLElement, markerContainer: HTMLElement) {
     this.highlightContainer = highlightContainer;
@@ -104,6 +105,11 @@ export class HighlightManager {
       marker.remove();
     }
     this.markers.clear();
+  }
+
+  toggleMarkers(): void {
+    this.markersVisible = !this.markersVisible;
+    this.markerContainer.style.display = this.markersVisible ? '' : 'none';
   }
 
   destroy(): void {

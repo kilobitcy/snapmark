@@ -1,10 +1,11 @@
-type ToolbarEvent = 'toggle' | 'copy' | 'clear' | 'freeze' | 'send' | 'settings' | 'markersToggle';
+type ToolbarEvent = 'toggle' | 'copy' | 'clear' | 'freeze' | 'send' | 'settings' | 'markersToggle' | 'areaMode';
 
 type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
 const BUTTON_DEFS: Array<{ action: ToolbarEvent; label: string; title: string }> = [
   { action: 'markersToggle', label: '⦿', title: 'Toggle markers' },
   { action: 'freeze',        label: '⏸', title: 'Freeze/unfreeze' },
+  { action: 'areaMode',      label: '▢', title: 'Area select mode' },
   { action: 'settings',      label: '⚙', title: 'Settings' },
   { action: 'copy',          label: '📋', title: 'Copy annotations' },
   { action: 'send',          label: '➤', title: 'Send' },

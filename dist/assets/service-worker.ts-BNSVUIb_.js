@@ -1,0 +1,1 @@
+chrome.runtime.onMessage.addListener(e=>{switch(e.type){case"COPY_TO_CLIPBOARD":break;case"OPEN_SETTINGS":{chrome.action.openPopup().catch(()=>{chrome.tabs.create({url:chrome.runtime.getURL("popup/popup.html")})});break}}});console.log("[agentation] service worker loaded");
