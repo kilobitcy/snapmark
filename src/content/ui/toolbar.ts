@@ -187,7 +187,6 @@ export class Toolbar {
 
     badge.addEventListener('click', () => {
       this.emit('toggle');
-      this.toggle();
     });
 
     this.attachDragHandler(badge);
@@ -263,7 +262,6 @@ export class Toolbar {
     `;
     closeBtn.addEventListener('click', () => {
       this.emit('toggle');
-      this.deactivate();
     });
 
     header.appendChild(statusDot);
