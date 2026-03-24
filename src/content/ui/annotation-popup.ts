@@ -37,7 +37,13 @@ export class AnnotationPopup {
       fontSize: '13px',
       color: '#1a1a1a',
       border: '1px solid #e5e7eb',
+      pointerEvents: 'auto',
     });
+
+    // Stop all mouse/keyboard events from leaking to the host page
+    for (const evt of ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'keydown', 'keyup'] as const) {
+      this.popupEl.addEventListener(evt, (e) => e.stopPropagation());
+    }
 
     this.popupEl.innerHTML = `
       <div class="ag-popup-header" style="margin-bottom:8px;font-weight:600;font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">

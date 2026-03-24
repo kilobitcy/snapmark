@@ -35,7 +35,8 @@ const STYLES = `
   pointer-events: none;
 }
 
-#agentation-toolbar {
+#agentation-toolbar,
+#agentation-popups {
   pointer-events: auto;
 }
 `;
