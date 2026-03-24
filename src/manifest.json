@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Agentation",
+  "name": "SnapMark",
   "version": "0.1.0",
-  "description": "Visual feedback for AI coding agents",
+  "description": "Annotate web elements and generate AI-ready prompts",
   "permissions": ["activeTab", "clipboardWrite", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [{
