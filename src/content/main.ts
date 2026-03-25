@@ -3,11 +3,11 @@ import { Toolbar } from './ui/toolbar';
 import { HighlightManager } from './ui/highlight';
 import { AnnotationPopup } from './ui/annotation-popup';
 import { AnnotationStore } from './annotation-store';
-import { extractElementInfo } from './capture/element-info';
-import { deepElementFromPoint, generateElementPath } from './capture/selector';
+import { extractElementInfo, extractAreaElementInfo } from './capture/element-info';
+import { deepElementFromPoint, generateElementPath, generateUniqueSelector } from './capture/selector';
 import { getTextSelection } from './capture/text-selection';
 import { generateOutput, OutputLevel } from '../shared/markdown';
-import type { Annotation } from '../shared/types';
+import type { Annotation, PageContext } from '../shared/types';
 import type { FrameworkInfo, SourceInfo } from './frameworks/types';
 import { AGENTATION_SOURCE } from '../shared/messaging';
 import { freezePage, unfreezePage, isFrozen } from './freeze';
@@ -112,7 +112,11 @@ let areaDragging = false;
 let areaStartX = 0;
 let areaStartY = 0;
 let areaOverlay: HTMLElement | null = null;
-let pendingAreaBoundingBox: { x: number; y: number; width: number; height: number } | null = null;
+let pendingAreaBoundingBox: {
+  box: { x: number; y: number; width: number; height: number };
+  leafElements: Element[];
+  commonAncestor: Element | null;
+} | null = null;
 
 // Restore existing markers
 function refreshMarkers() {
@@ -142,7 +146,12 @@ toolbar.on('toggle', () => {
 });
 
 toolbar.on('copy', () => {
-  const md = generateOutput(store.getAll(), outputLevel);
+  const page: PageContext = {
+    url: window.location.href,
+    title: document.title,
+    timestamp: Date.now(),
+  };
+  const md = generateOutput(store.getAll(), outputLevel, page);
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(md).catch(() => {});
   } else {
@@ -267,13 +276,50 @@ document.body.addEventListener('mouseup', (e) => {
 
   if (width < 5 || height < 5) return; // too small, ignore
 
-  // Store bounding box for the area annotation; use a synthetic pendingElement approach
-  const areaBoundingBox = { x: x + window.scrollX, y: y + window.scrollY, width, height };
+  // Collect all visible DOM elements within the selected rectangle
+  const areaRect = { left: x, top: y, right: x + width, bottom: y + height };
+  const allElements = document.body.querySelectorAll('*');
+  const contained: Element[] = [];
+  for (const el of allElements) {
+    if (isAgentationElement(el)) continue;
+    const r = el.getBoundingClientRect();
+    // Element must be visible and overlap substantially with the area
+    if (r.width === 0 || r.height === 0) continue;
+    if (r.left >= areaRect.left && r.top >= areaRect.top &&
+        r.right <= areaRect.right && r.bottom <= areaRect.bottom) {
+      contained.push(el);
+    }
+  }
 
-  popup.show({ x: e.clientX, y: e.clientY }, `Area (${width}x${height})`);
+  // Filter to leaf-most elements (remove ancestors whose children are already in the set)
+  const leafElements = contained.filter(el =>
+    !contained.some(other => other !== el && el.contains(other))
+  );
 
-  // Store area info for submit handler via a closure variable
-  pendingAreaBoundingBox = areaBoundingBox;
+  // Find common ancestor
+  let commonAncestor: Element | null = null;
+  if (leafElements.length > 0) {
+    commonAncestor = leafElements[0];
+    for (let i = 1; i < leafElements.length; i++) {
+      while (commonAncestor && !commonAncestor.contains(leafElements[i])) {
+        commonAncestor = commonAncestor.parentElement;
+      }
+    }
+  }
+
+  const elementCount = leafElements.length;
+  const label = commonAncestor
+    ? `Area: ${elementCount} elements in ${generateElementPath(commonAncestor, 2)}`
+    : `Area (${width}x${height})`;
+
+  popup.show({ x: e.clientX, y: e.clientY }, label);
+
+  // Store area info for submit handler
+  pendingAreaBoundingBox = {
+    box: { x: x + window.scrollX, y: y + window.scrollY, width, height },
+    leafElements,
+    commonAncestor,
+  };
   pendingElement = null; // area annotation, not element-based
 }, true);
 
@@ -323,14 +369,24 @@ document.body.addEventListener('click', (e) => {
 popup.on('submit', async (data: { comment: string; intent: string; severity: string }) => {
   // === Area annotation submit ===
   if (pendingAreaBoundingBox) {
-    const box = pendingAreaBoundingBox;
+    const { box, leafElements, commonAncestor } = pendingAreaBoundingBox;
     pendingAreaBoundingBox = null;
+
+    // Extract semantic info from contained elements
+    const containedElements = leafElements.slice(0, 20).map(el => extractAreaElementInfo(el));
+
+    const ancestorPath = commonAncestor ? generateElementPath(commonAncestor) : '';
+    const ancestorSelector = commonAncestor ? generateUniqueSelector(commonAncestor) : '';
+
+    // Use common ancestor's info as the primary element if available
+    const primaryInfo = commonAncestor ? extractElementInfo(commonAncestor) : {};
+
     store.add({
-      elementPath: 'area',
-      selector: '',
-      elementTag: 'area',
-      cssClasses: [],
-      attributes: {},
+      elementPath: ancestorPath || 'area',
+      selector: ancestorSelector,
+      elementTag: commonAncestor?.tagName.toLowerCase() || 'area',
+      cssClasses: primaryInfo.cssClasses || [],
+      attributes: primaryInfo.attributes || {},
       textContent: '',
       comment: data.comment,
       intent: data.intent as any,
@@ -342,8 +398,14 @@ popup.on('submit', async (data: { comment: string; intent: string; severity: str
         width: window.innerWidth,
         height: window.innerHeight,
       },
-      nearbyText: [],
-      computedStyles: {},
+      nearbyText: primaryInfo.nearbyText || [],
+      nearbyElements: primaryInfo.nearbyElements,
+      computedStyles: primaryInfo.computedStyles || {},
+      accessibility: primaryInfo.accessibility,
+      isAreaSelect: true,
+      containedElements,
+      commonAncestorPath: ancestorPath,
+      commonAncestorSelector: ancestorSelector,
     });
     refreshMarkers();
     return;

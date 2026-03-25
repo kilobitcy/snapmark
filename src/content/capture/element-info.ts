@@ -99,6 +99,28 @@ function extractAccessibility(el: Element): Annotation['accessibility'] {
 }
 
 /**
+ * Extract lightweight semantic info for an element within an area selection.
+ * Used for containedElements — no bounding box or viewport data needed.
+ */
+export function extractAreaElementInfo(el: Element): {
+  selector: string;
+  elementPath: string;
+  elementTag: string;
+  cssClasses: string[];
+  textContent: string;
+  attributes: Record<string, string>;
+} {
+  return {
+    selector: generateUniqueSelector(el),
+    elementPath: generateElementPath(el),
+    elementTag: el.tagName.toLowerCase(),
+    cssClasses: filterClasses(el),
+    textContent: extractTextContent(el),
+    attributes: extractAttributes(el),
+  };
+}
+
+/**
  * Extract all DOM-level information from a clicked element.
  */
 export function extractElementInfo(el: Element): Partial<Annotation> {

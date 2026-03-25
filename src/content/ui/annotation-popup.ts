@@ -84,6 +84,21 @@ export class AnnotationPopup {
     });
 
     this.container.appendChild(this.popupEl);
+
+    // Adjust position if popup overflows viewport bottom
+    const rect = this.popupEl.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    if (rect.bottom > viewportHeight) {
+      // Flip above the element
+      const flippedTop = position.y - rect.height - 10;
+      this.popupEl.style.top = `${flippedTop > 0 ? flippedTop : 0}px`;
+    }
+    // Adjust if popup overflows viewport right
+    const viewportWidth = window.innerWidth;
+    if (rect.right > viewportWidth) {
+      this.popupEl.style.left = `${Math.max(0, viewportWidth - rect.width - 10)}px`;
+    }
+
     (this.popupEl.querySelector('textarea') as HTMLTextAreaElement).focus();
   }
 

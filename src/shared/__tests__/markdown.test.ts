@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { generateOutput, OutputLevel } from '../markdown';
-import type { Annotation } from '../types';
+import type { Annotation, PageContext } from '../types';
+
+const page: PageContext = {
+  url: 'https://example.com/orders',
+  title: 'Order Management',
+  timestamp: 1711200000000,
+};
 
 const base: Annotation = {
   id: '1', timestamp: 1711200000000, comment: 'Fix button color',
@@ -111,6 +117,26 @@ describe('generateOutput', () => {
       const out = generateOutput([base, { ...base, id: '2', comment: 'Second' }], 'standard');
       expect(out).toContain('#1');
       expect(out).toContain('#2');
+    });
+  });
+
+  describe('page context header', () => {
+    it('compact level shows single-line blockquote', () => {
+      const out = generateOutput([base], 'compact', page);
+      expect(out).toMatch(/^> Order Management \| https:\/\/example\.com\/orders/);
+      expect(out).toContain('1 annotations');
+    });
+    it('standard level shows structured header', () => {
+      const out = generateOutput([base], 'standard', page);
+      expect(out).toContain('# Order Management');
+      expect(out).toContain('**URL:** https://example.com/orders');
+      expect(out).toContain('**Date:**');
+      expect(out).toContain('**Annotations:** 1');
+    });
+    it('no header when page context is omitted', () => {
+      const out = generateOutput([base], 'standard');
+      expect(out).not.toContain('**URL:**');
+      expect(out).toMatch(/^## Annotation #1/);
     });
   });
 });

@@ -69,11 +69,13 @@ export class Toolbar {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   activate(): void {
+    this.captureCurrentPosition();
     this.isActive = true;
     this.render();
   }
 
   deactivate(): void {
+    this.captureCurrentPosition();
     this.isActive = false;
     this.activeButtons.clear();
     this.render();
@@ -134,6 +136,15 @@ export class Toolbar {
       btn.style.background = '#f9fafb';
       btn.style.color = '';
       btn.style.borderColor = '#e5e5e5';
+    }
+  }
+
+  private captureCurrentPosition(): void {
+    const el = this.container.firstElementChild as HTMLElement | null;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      this.posX = rect.left;
+      this.posY = rect.top;
     }
   }
 
