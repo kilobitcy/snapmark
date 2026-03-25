@@ -31,8 +31,12 @@ export class Toolbar {
   private dragging = false;
   private dragOffsetX = 0;
   private dragOffsetY = 0;
-  private posX = -1; // -1 = not yet positioned (use CSS default)
-  private posY = -1;
+
+  // Independent position state for badge and panel
+  private badgePosX = -1; // -1 = not yet positioned (use CSS default bottom-right)
+  private badgePosY = -1;
+  private panelPosX = -1; // -1 = first open copies badge position
+  private panelPosY = -1;
 
   // Bound event handlers for cleanup
   private _onMouseMove: (e: MouseEvent) => void;
@@ -48,12 +52,20 @@ export class Toolbar {
       if (!el) return;
       const w = el.offsetWidth || 0;
       const h = el.offsetHeight || 0;
-      this.posX = Math.min(Math.max(padding, e.clientX - this.dragOffsetX), window.innerWidth - w - padding);
-      this.posY = Math.min(Math.max(padding, e.clientY - this.dragOffsetY), window.innerHeight - h - padding);
-      el.style.left = `${this.posX}px`;
-      el.style.top = `${this.posY}px`;
+      const newX = Math.min(Math.max(padding, e.clientX - this.dragOffsetX), window.innerWidth - w - padding);
+      const newY = Math.min(Math.max(padding, e.clientY - this.dragOffsetY), window.innerHeight - h - padding);
+      el.style.left = `${newX}px`;
+      el.style.top = `${newY}px`;
       el.style.right = 'auto';
       el.style.bottom = 'auto';
+      // Update the correct position state based on what's currently shown
+      if (this.isActive) {
+        this.panelPosX = newX;
+        this.panelPosY = newY;
+      } else {
+        this.badgePosX = newX;
+        this.badgePosY = newY;
+      }
     };
 
     this._onMouseUp = () => {
@@ -69,13 +81,26 @@ export class Toolbar {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   activate(): void {
-    this.captureCurrentPosition();
+    // First open: panel appears at badge's current position
+    if (this.panelPosX < 0 && this.panelPosY < 0) {
+      const el = this.container.firstElementChild as HTMLElement | null;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        this.panelPosX = rect.left;
+        this.panelPosY = rect.top;
+      }
+    }
+    // Clamp panel position to keep it within the viewport
+    const padding = 20;
+    const panelWidth = 280; // minWidth of the panel
+    const panelHeight = 90; // approximate header + button row height
+    this.panelPosX = Math.min(Math.max(padding, this.panelPosX), window.innerWidth - panelWidth - padding);
+    this.panelPosY = Math.min(Math.max(padding, this.panelPosY), window.innerHeight - panelHeight - padding);
     this.isActive = true;
     this.render();
   }
 
   deactivate(): void {
-    this.captureCurrentPosition();
     this.isActive = false;
     this.activeButtons.clear();
     this.render();
@@ -139,15 +164,6 @@ export class Toolbar {
     }
   }
 
-  private captureCurrentPosition(): void {
-    const el = this.container.firstElementChild as HTMLElement | null;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      this.posX = rect.left;
-      this.posY = rect.top;
-    }
-  }
-
   destroy(): void {
     document.removeEventListener('mousemove', this._onMouseMove);
     document.removeEventListener('mouseup', this._onMouseUp);
@@ -184,7 +200,7 @@ export class Toolbar {
     }
   }
 
-  private applyBasePosition(el: HTMLElement, width: string, height: string): void {
+  private applyBasePosition(el: HTMLElement, width: string, height: string, posX: number, posY: number): void {
     el.style.cssText = `
       position: fixed;
       z-index: 2147483647;
@@ -193,9 +209,9 @@ export class Toolbar {
       cursor: grab;
       user-select: none;
     `;
-    if (this.posX >= 0 && this.posY >= 0) {
-      el.style.left = `${this.posX}px`;
-      el.style.top = `${this.posY}px`;
+    if (posX >= 0 && posY >= 0) {
+      el.style.left = `${posX}px`;
+      el.style.top = `${posY}px`;
     } else {
       el.style.right = '20px';
       el.style.bottom = '20px';
@@ -220,7 +236,7 @@ export class Toolbar {
     const badge = document.createElement('div');
     badge.className = 'ag-badge';
 
-    this.applyBasePosition(badge, '44px', '44px');
+    this.applyBasePosition(badge, '44px', '44px', this.badgePosX, this.badgePosY);
     badge.style.borderRadius = '50%';
     badge.style.backgroundColor = '#3b82f6';
     badge.style.color = '#ffffff';
@@ -246,7 +262,7 @@ export class Toolbar {
     const panel = document.createElement('div');
     panel.className = 'ag-panel';
 
-    this.applyBasePosition(panel, 'auto', 'auto');
+    this.applyBasePosition(panel, 'auto', 'auto', this.panelPosX, this.panelPosY);
     panel.style.borderRadius = '10px';
     panel.style.backgroundColor = '#ffffff';
     panel.style.border = '1px solid #e5e5e5';
