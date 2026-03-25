@@ -107,9 +107,10 @@ export class HighlightManager {
     this.markers.clear();
   }
 
-  toggleMarkers(): void {
+  toggleMarkers(): boolean {
     this.markersVisible = !this.markersVisible;
     this.markerContainer.style.display = this.markersVisible ? '' : 'none';
+    return this.markersVisible;
   }
 
   destroy(): void {

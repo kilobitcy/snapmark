@@ -168,10 +168,12 @@ toolbar.on('freeze', () => {
   } else {
     freezePage();
   }
+  toolbar.setButtonActive('freeze', isFrozen());
 });
 
 toolbar.on('markersToggle', () => {
-  highlights.toggleMarkers();
+  const visible = highlights.toggleMarkers();
+  toolbar.setButtonActive('markersToggle', !visible);
 });
 
 toolbar.on('areaMode', () => {
@@ -181,6 +183,7 @@ toolbar.on('areaMode', () => {
     areaDragging = false;
   }
   document.body.style.cursor = areaMode ? 'crosshair' : '';
+  toolbar.setButtonActive('areaMode', areaMode);
 });
 
 toolbar.on('settings', () => {

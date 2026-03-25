@@ -25,6 +25,7 @@ export class Toolbar {
   private listeners = new Map<string, Set<Function>>();
   private annotationCount = 0;
   private connectionStatus: ConnectionStatus = 'disconnected';
+  private activeButtons = new Set<ToolbarEvent>();
 
   // Drag state
   private dragging = false;
@@ -74,6 +75,7 @@ export class Toolbar {
 
   deactivate(): void {
     this.isActive = false;
+    this.activeButtons.clear();
     this.render();
   }
 
@@ -97,6 +99,41 @@ export class Toolbar {
     if (el) {
       el.style.backgroundColor = STATUS_COLORS[status];
       el.title = status;
+    }
+  }
+
+  setButtonActive(action: ToolbarEvent, active: boolean): void {
+    if (active) {
+      this.activeButtons.add(action);
+    } else {
+      this.activeButtons.delete(action);
+    }
+    const btn = this.container.querySelector(`[data-action="${action}"]`) as HTMLElement | null;
+    if (btn) {
+      this.applyButtonStyle(btn, active);
+    }
+  }
+
+  private flashButton(btn: HTMLElement): void {
+    btn.style.background = '#dbeafe';
+    btn.style.transform = 'scale(0.92)';
+    setTimeout(() => {
+      if (!this.activeButtons.has(btn.dataset.action as ToolbarEvent)) {
+        btn.style.background = '#f9fafb';
+      }
+      btn.style.transform = '';
+    }, 150);
+  }
+
+  private applyButtonStyle(btn: HTMLElement, active: boolean): void {
+    if (active) {
+      btn.style.background = '#3b82f6';
+      btn.style.color = '#ffffff';
+      btn.style.borderColor = '#3b82f6';
+    } else {
+      btn.style.background = '#f9fafb';
+      btn.style.color = '';
+      btn.style.borderColor = '#e5e5e5';
     }
   }
 
@@ -296,13 +333,23 @@ export class Toolbar {
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: background 0.15s;
+        transition: background 0.15s, transform 0.1s;
         flex-shrink: 0;
       `;
-      btn.addEventListener('mouseenter', () => { btn.style.background = '#e0e7ff'; });
-      btn.addEventListener('mouseleave', () => { btn.style.background = '#f9fafb'; });
+      if (this.activeButtons.has(def.action)) {
+        this.applyButtonStyle(btn, true);
+      }
+      btn.addEventListener('mouseenter', () => {
+        if (!this.activeButtons.has(def.action)) btn.style.background = '#e0e7ff';
+      });
+      btn.addEventListener('mouseleave', () => {
+        if (!this.activeButtons.has(def.action)) btn.style.background = '#f9fafb';
+      });
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!this.activeButtons.has(def.action)) {
+          this.flashButton(btn);
+        }
         this.emit(def.action);
       });
       btnRow.appendChild(btn);
