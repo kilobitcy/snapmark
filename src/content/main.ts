@@ -1,4 +1,4 @@
-import { createAgentationHost } from './ui/host';
+import { createAgentationHost, hideAgentationHost, showAgentationHost } from './ui/host';
 import { Toolbar } from './ui/toolbar';
 import { HighlightManager } from './ui/highlight';
 import { AnnotationPopup } from './ui/annotation-popup';
@@ -11,6 +11,7 @@ import type { Annotation, PageContext } from '../shared/types';
 import type { FrameworkInfo, SourceInfo } from './frameworks/types';
 import { AGENTATION_SOURCE } from '../shared/messaging';
 import { freezePage, unfreezePage, isFrozen } from './freeze';
+import { initLocale } from '../shared/i18n';
 
 // === MAIN World Communication ===
 
@@ -54,17 +55,16 @@ function requestSourceInfo(selector: string): Promise<SourceInfo | null> {
   });
 }
 
-// Initialize
-const shadow = createAgentationHost();
-const store = new AnnotationStore(window.location.pathname);
+// === Activation State ===
+let isActivated = false;
+let instancesCreated = false;
 
-const toolbar = new Toolbar(shadow.getElementById('agentation-toolbar')!);
-const highlights = new HighlightManager(
-  shadow.getElementById('agentation-highlights')!,
-  shadow.getElementById('agentation-markers')!,
-);
-const popup = new AnnotationPopup(shadow.getElementById('agentation-popups')!);
-
+// These are initialized lazily on first activation
+let shadow: ShadowRoot;
+let store: AnnotationStore;
+let toolbar: Toolbar;
+let highlights: HighlightManager;
+let popup: AnnotationPopup;
 let pendingElement: Element | null = null;
 let outputLevel: OutputLevel = 'standard';
 
@@ -126,15 +126,225 @@ function refreshMarkers() {
   });
   toolbar.setAnnotationCount(store.getAll().length);
 }
-refreshMarkers();
 
 // === Toolbar Events ===
 
-toolbar.on('toggle', () => {
-  toolbar.toggle();
-  if (!toolbar.isActive) {
-    highlights.clearHoverHighlight();
+function bindToolbarEvents() {
+  toolbar.on('toggle', () => {
+    toolbar.toggle();
+    if (!toolbar.isActive) {
+      highlights.clearHoverHighlight();
+      popup.hide();
+      document.body.style.cursor = '';
+      clearMultiSelectHighlights();
+      pendingMultiSelectElements = [];
+      areaMode = false;
+      areaDragging = false;
+      if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
+      pendingAreaBoundingBox = null;
+    }
+  });
+
+  toolbar.on('copy', () => {
+    const page: PageContext = {
+      url: window.location.href,
+      title: document.title,
+      timestamp: Date.now(),
+    };
+    const md = generateOutput(store.getAll(), outputLevel, page);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(md).catch(() => {});
+    } else {
+      // Fallback for non-secure contexts (HTTP pages)
+      const ta = document.createElement('textarea');
+      ta.value = md;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+  });
+
+  toolbar.on('clear', () => {
+    store.clearAll();
+    refreshMarkers();
+  });
+
+  toolbar.on('freeze', () => {
+    if (isFrozen()) {
+      unfreezePage();
+    } else {
+      freezePage();
+    }
+    toolbar.setButtonActive('freeze', isFrozen());
+  });
+
+  toolbar.on('markersToggle', () => {
+    const visible = highlights.toggleMarkers();
+    toolbar.setButtonActive('markersToggle', !visible);
+  });
+
+  toolbar.on('areaMode', () => {
+    areaMode = !areaMode;
+    if (!areaMode) {
+      if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
+      areaDragging = false;
+    }
+    document.body.style.cursor = areaMode ? 'crosshair' : '';
+    toolbar.setButtonActive('areaMode', areaMode);
+  });
+
+  toolbar.on('settings', () => {
+    chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' });
+  });
+}
+
+// === Popup Events ===
+
+function bindPopupEvents() {
+  popup.on('submit', async (data: { comment: string; intent: string; severity: string }) => {
+    // === Area annotation submit ===
+    if (pendingAreaBoundingBox) {
+      const { box, leafElements, commonAncestor } = pendingAreaBoundingBox;
+      pendingAreaBoundingBox = null;
+
+      // Extract semantic info from contained elements
+      const containedElements = leafElements.slice(0, 20).map(el => extractAreaElementInfo(el));
+
+      const ancestorPath = commonAncestor ? generateElementPath(commonAncestor) : '';
+      const ancestorSelector = commonAncestor ? generateUniqueSelector(commonAncestor) : '';
+
+      // Use common ancestor's info as the primary element if available
+      const primaryInfo = commonAncestor ? extractElementInfo(commonAncestor) : {};
+
+      store.add({
+        elementPath: ancestorPath || 'area',
+        selector: ancestorSelector,
+        elementTag: commonAncestor?.tagName.toLowerCase() || 'area',
+        cssClasses: primaryInfo.cssClasses || [],
+        attributes: primaryInfo.attributes || {},
+        textContent: '',
+        comment: data.comment,
+        intent: data.intent as any,
+        severity: data.severity as any,
+        boundingBox: box,
+        viewport: {
+          scrollX: window.scrollX,
+          scrollY: window.scrollY,
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+        nearbyText: primaryInfo.nearbyText || [],
+        nearbyElements: primaryInfo.nearbyElements,
+        computedStyles: primaryInfo.computedStyles || {},
+        accessibility: primaryInfo.accessibility,
+        isAreaSelect: true,
+        containedElements,
+        commonAncestorPath: ancestorPath,
+        commonAncestorSelector: ancestorSelector,
+      });
+      refreshMarkers();
+      return;
+    }
+
+    if (!pendingElement) return;
+
+    const isMulti = pendingMultiSelectElements.length > 1;
+    const elementsToCapture = isMulti ? [...pendingMultiSelectElements] : [pendingElement];
+
+    const info = extractElementInfo(pendingElement);
+    const textSel = getTextSelection();
+    const selector = info.selector!;
+
+    // Request framework + source info from MAIN world
+    const [frameworkInfo, sourceInfo] = await Promise.all([
+      detectedFrameworks.length > 0 ? requestComponentInfo(selector) : Promise.resolve(null),
+      detectedFrameworks.length > 0 ? requestSourceInfo(selector) : Promise.resolve(null),
+    ]);
+
+    // Compute per-element bounding boxes for multi-select
+    const elementBoundingBoxes = isMulti
+      ? elementsToCapture.map(el => {
+          const r = el.getBoundingClientRect();
+          return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+        })
+      : undefined;
+
+    // Compute union bounding box for multi-select
+    let boundingBoxOverride: { x: number; y: number; width: number; height: number } | undefined;
+    if (isMulti && elementBoundingBoxes && elementBoundingBoxes.length > 0) {
+      const minX = Math.min(...elementBoundingBoxes.map(b => b.x));
+      const minY = Math.min(...elementBoundingBoxes.map(b => b.y));
+      const maxX = Math.max(...elementBoundingBoxes.map(b => b.x + b.width));
+      const maxY = Math.max(...elementBoundingBoxes.map(b => b.y + b.height));
+      boundingBoxOverride = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    }
+
+    store.add({
+      ...info,
+      ...(boundingBoxOverride ? { boundingBox: boundingBoxOverride } : {}),
+      comment: data.comment,
+      intent: data.intent as any,
+      severity: data.severity as any,
+      selectedText: textSel?.text,
+      framework: frameworkInfo || undefined,
+      source: sourceInfo || undefined,
+      ...(isMulti ? { isMultiSelect: true, elementBoundingBoxes } : {}),
+    });
+
+    // Clean up multi-select highlights
+    if (isMulti) {
+      clearMultiSelectHighlights();
+      pendingMultiSelectElements = [];
+    }
+
+    refreshMarkers();
+    pendingElement = null;
+  });
+
+  popup.on('cancel', () => {
+    pendingElement = null;
+    pendingAreaBoundingBox = null;
+    // Don't clear multi-select on cancel — let user keep selection and try again
+  });
+}
+
+// === Activation Functions ===
+
+function activate() {
+  if (isActivated) return;
+  isActivated = true;
+
+  if (!instancesCreated) {
+    shadow = createAgentationHost();
+    store = new AnnotationStore(window.location.pathname);
+    toolbar = new Toolbar(shadow.getElementById('agentation-toolbar')!);
+    highlights = new HighlightManager(
+      shadow.getElementById('agentation-highlights')!,
+      shadow.getElementById('agentation-markers')!,
+    );
+    popup = new AnnotationPopup(shadow.getElementById('agentation-popups')!);
+    bindToolbarEvents();
+    bindPopupEvents();
+    instancesCreated = true;
+  } else {
+    showAgentationHost();
+  }
+
+  toolbar.activate();
+  refreshMarkers();
+}
+
+function deactivate() {
+  if (!isActivated) return;
+  isActivated = false;
+
+  if (instancesCreated) {
+    toolbar.deactivate();
     popup.hide();
+    highlights.clearHoverHighlight();
+    hideAgentationHost();
     document.body.style.cursor = '';
     clearMultiSelectHighlights();
     pendingMultiSelectElements = [];
@@ -143,65 +353,25 @@ toolbar.on('toggle', () => {
     if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
     pendingAreaBoundingBox = null;
   }
-});
+  // NOTE: does NOT send SET_DOMAIN_STATE to avoid feedback loops
+}
 
-toolbar.on('copy', () => {
-  const page: PageContext = {
-    url: window.location.href,
-    title: document.title,
-    timestamp: Date.now(),
-  };
-  const md = generateOutput(store.getAll(), outputLevel, page);
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(md).catch(() => {});
+function toggleActivation() {
+  if (isActivated) {
+    deactivate();
+    const hostname = window.location.hostname;
+    chrome.runtime.sendMessage({ type: 'SET_DOMAIN_STATE', payload: { hostname, active: false } });
   } else {
-    // Fallback for non-secure contexts (HTTP pages)
-    const ta = document.createElement('textarea');
-    ta.value = md;
-    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
+    activate();
+    const hostname = window.location.hostname;
+    chrome.runtime.sendMessage({ type: 'SET_DOMAIN_STATE', payload: { hostname, active: true } });
   }
-});
-
-toolbar.on('clear', () => {
-  store.clearAll();
-  refreshMarkers();
-});
-
-toolbar.on('freeze', () => {
-  if (isFrozen()) {
-    unfreezePage();
-  } else {
-    freezePage();
-  }
-  toolbar.setButtonActive('freeze', isFrozen());
-});
-
-toolbar.on('markersToggle', () => {
-  const visible = highlights.toggleMarkers();
-  toolbar.setButtonActive('markersToggle', !visible);
-});
-
-toolbar.on('areaMode', () => {
-  areaMode = !areaMode;
-  if (!areaMode) {
-    if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
-    areaDragging = false;
-  }
-  document.body.style.cursor = areaMode ? 'crosshair' : '';
-  toolbar.setButtonActive('areaMode', areaMode);
-});
-
-toolbar.on('settings', () => {
-  chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' });
-});
+}
 
 // === Mouse Events (when active) ===
 
 document.body.addEventListener('mousemove', (e) => {
+  if (!isActivated) return;
   if (!toolbar.isActive) return;
 
   // Area mode drag: update the rectangle overlay
@@ -231,7 +401,7 @@ document.body.addEventListener('mousemove', (e) => {
 });
 
 document.body.addEventListener('mousedown', (e) => {
-  if (!toolbar.isActive || !areaMode) return;
+  if (!isActivated || !areaMode) return;
   const target = e.target as Element;
   if (isAgentationElement(target)) return;
 
@@ -261,7 +431,7 @@ document.body.addEventListener('mousedown', (e) => {
 }, true);
 
 document.body.addEventListener('mouseup', (e) => {
-  if (!toolbar.isActive || !areaMode || !areaDragging) return;
+  if (!isActivated || !areaMode || !areaDragging) return;
   e.preventDefault();
   e.stopPropagation();
 
@@ -324,6 +494,7 @@ document.body.addEventListener('mouseup', (e) => {
 }, true);
 
 document.body.addEventListener('click', (e) => {
+  if (!isActivated) return;
   if (!toolbar.isActive) return;
   if (areaMode) return; // area mode uses mousedown/mouseup
 
@@ -364,126 +535,37 @@ document.body.addEventListener('click', (e) => {
   popup.show({ x: e.clientX, y: e.clientY }, name);
 }, true); // capture phase
 
-// === Popup Events ===
-
-popup.on('submit', async (data: { comment: string; intent: string; severity: string }) => {
-  // === Area annotation submit ===
-  if (pendingAreaBoundingBox) {
-    const { box, leafElements, commonAncestor } = pendingAreaBoundingBox;
-    pendingAreaBoundingBox = null;
-
-    // Extract semantic info from contained elements
-    const containedElements = leafElements.slice(0, 20).map(el => extractAreaElementInfo(el));
-
-    const ancestorPath = commonAncestor ? generateElementPath(commonAncestor) : '';
-    const ancestorSelector = commonAncestor ? generateUniqueSelector(commonAncestor) : '';
-
-    // Use common ancestor's info as the primary element if available
-    const primaryInfo = commonAncestor ? extractElementInfo(commonAncestor) : {};
-
-    store.add({
-      elementPath: ancestorPath || 'area',
-      selector: ancestorSelector,
-      elementTag: commonAncestor?.tagName.toLowerCase() || 'area',
-      cssClasses: primaryInfo.cssClasses || [],
-      attributes: primaryInfo.attributes || {},
-      textContent: '',
-      comment: data.comment,
-      intent: data.intent as any,
-      severity: data.severity as any,
-      boundingBox: box,
-      viewport: {
-        scrollX: window.scrollX,
-        scrollY: window.scrollY,
-        width: window.innerWidth,
-        height: window.innerHeight,
-      },
-      nearbyText: primaryInfo.nearbyText || [],
-      nearbyElements: primaryInfo.nearbyElements,
-      computedStyles: primaryInfo.computedStyles || {},
-      accessibility: primaryInfo.accessibility,
-      isAreaSelect: true,
-      containedElements,
-      commonAncestorPath: ancestorPath,
-      commonAncestorSelector: ancestorSelector,
-    });
-    refreshMarkers();
-    return;
-  }
-
-  if (!pendingElement) return;
-
-  const isMulti = pendingMultiSelectElements.length > 1;
-  const elementsToCapture = isMulti ? [...pendingMultiSelectElements] : [pendingElement];
-
-  const info = extractElementInfo(pendingElement);
-  const textSel = getTextSelection();
-  const selector = info.selector!;
-
-  // Request framework + source info from MAIN world
-  const [frameworkInfo, sourceInfo] = await Promise.all([
-    detectedFrameworks.length > 0 ? requestComponentInfo(selector) : Promise.resolve(null),
-    detectedFrameworks.length > 0 ? requestSourceInfo(selector) : Promise.resolve(null),
-  ]);
-
-  // Compute per-element bounding boxes for multi-select
-  const elementBoundingBoxes = isMulti
-    ? elementsToCapture.map(el => {
-        const r = el.getBoundingClientRect();
-        return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
-      })
-    : undefined;
-
-  // Compute union bounding box for multi-select
-  let boundingBoxOverride: { x: number; y: number; width: number; height: number } | undefined;
-  if (isMulti && elementBoundingBoxes && elementBoundingBoxes.length > 0) {
-    const minX = Math.min(...elementBoundingBoxes.map(b => b.x));
-    const minY = Math.min(...elementBoundingBoxes.map(b => b.y));
-    const maxX = Math.max(...elementBoundingBoxes.map(b => b.x + b.width));
-    const maxY = Math.max(...elementBoundingBoxes.map(b => b.y + b.height));
-    boundingBoxOverride = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-  }
-
-  store.add({
-    ...info,
-    ...(boundingBoxOverride ? { boundingBox: boundingBoxOverride } : {}),
-    comment: data.comment,
-    intent: data.intent as any,
-    severity: data.severity as any,
-    selectedText: textSel?.text,
-    framework: frameworkInfo || undefined,
-    source: sourceInfo || undefined,
-    ...(isMulti ? { isMultiSelect: true, elementBoundingBoxes } : {}),
-  });
-
-  // Clean up multi-select highlights
-  if (isMulti) {
-    clearMultiSelectHighlights();
-    pendingMultiSelectElements = [];
-  }
-
-  refreshMarkers();
-  pendingElement = null;
-});
-
-popup.on('cancel', () => {
-  pendingElement = null;
-  pendingAreaBoundingBox = null;
-  // Don't clear multi-select on cancel — let user keep selection and try again
-});
-
 // === Keyboard Shortcut ===
 
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'F') {
     e.preventDefault();
-    toolbar.toggle();
-    if (!toolbar.isActive) {
-      highlights.clearHoverHighlight();
-      popup.hide();
-      document.body.style.cursor = '';
+    toggleActivation();
+  }
+});
+
+// === Message listener ===
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'DOMAIN_STATE') {
+    if (message.payload.active && !isActivated) {
+      activate();
+    } else if (!message.payload.active && isActivated) {
+      deactivate();
     }
   }
+});
+
+// === Startup ===
+initLocale().then(() => {
+  const hostname = window.location.hostname;
+  chrome.runtime.sendMessage(
+    { type: 'GET_DOMAIN_STATE', payload: { hostname } },
+    (response) => {
+      if (response?.payload?.active) {
+        activate();
+      }
+    },
+  );
 });
 
 // === Helpers ===
