@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { createAgentationHost, getAgentationShadow, _resetAgentationHost } from '../host';
+import { createAgentationHost, getAgentationShadow, _resetAgentationHost, hideAgentationHost, showAgentationHost } from '../host';
 
 describe('createAgentationHost', () => {
   afterEach(() => {
@@ -41,5 +41,27 @@ describe('createAgentationHost', () => {
   it('getAgentationShadow returns shadow after creation', () => {
     createAgentationHost();
     expect(getAgentationShadow()).not.toBeNull();
+  });
+});
+
+describe('hideAgentationHost / showAgentationHost', () => {
+  afterEach(() => {
+    document.querySelector('agentation-root')?.remove();
+    _resetAgentationHost();
+  });
+
+  it('hides the host element', () => {
+    createAgentationHost();
+    hideAgentationHost();
+    const host = document.querySelector('agentation-root') as HTMLElement;
+    expect(host.style.display).toBe('none');
+  });
+
+  it('shows the host element', () => {
+    createAgentationHost();
+    hideAgentationHost();
+    showAgentationHost();
+    const host = document.querySelector('agentation-root') as HTMLElement;
+    expect(host.style.display).toBe('');
   });
 });

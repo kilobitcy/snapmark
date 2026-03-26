@@ -77,3 +77,13 @@ export function getAgentationShadow(): ShadowRoot | null {
 export function _resetAgentationHost(): void {
   shadowRoot = null;
 }
+
+export function hideAgentationHost(): void {
+  const host = document.querySelector('agentation-root') as HTMLElement | null;
+  if (host) host.style.display = 'none';
+}
+
+export function showAgentationHost(): void {
+  const host = document.querySelector('agentation-root') as HTMLElement | null;
+  if (host) host.style.display = '';
+}
