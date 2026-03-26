@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SnapMark",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Annotate web elements and generate AI-ready prompts",
   "permissions": [
     "activeTab",
@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/main.ts-loader-BQJyMegk.js"
+        "assets/main.ts-loader-BXdXj21h.js"
       ],
       "matches": [
         "<all_urls>"
@@ -36,9 +36,9 @@
         "<all_urls>"
       ],
       "resources": [
-        "assets/i18n-B8x1UUhm.js",
+        "assets/i18n-Dg3LZrRP.js",
         "assets/messaging-BsnyCUR5.js",
-        "assets/main.ts-BYxlEDJ-.js"
+        "assets/main.ts-C-zGh16m.js"
       ],
       "use_dynamic_url": false
     }

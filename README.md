@@ -44,7 +44,7 @@ pnpm build
 
 You'll know SnapMark is successfully installed when:
 
-- The **SnapMark icon** (letter "A") appears in the Chrome toolbar (you may need to click the puzzle icon to pin it)
+- The **SnapMark icon** (a pen icon) appears in the Chrome toolbar (you may need to click the puzzle icon to pin it)
 - Clicking the icon opens a **Settings popup** with options for Output Detail Level, React Filter Mode, Theme, and Block Page Interactions
 - On any webpage, pressing `Cmd+Shift+F` (Mac) or `Ctrl+Shift+F` (Windows/Linux) shows a **floating toolbar** at the bottom-right corner of the page
 - Hovering over page elements while the toolbar is active shows **blue highlight overlays**
