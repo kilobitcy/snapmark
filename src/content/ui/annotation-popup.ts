@@ -1,4 +1,5 @@
 import type { AnnotationIntent, AnnotationSeverity } from '../../shared/types';
+import { t } from '../../shared/i18n';
 
 type PopupEvent = 'submit' | 'cancel';
 
@@ -49,23 +50,23 @@ export class AnnotationPopup {
       <div class="ag-popup-header" style="margin-bottom:8px;font-weight:600;font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
         <span class="ag-popup-element" title="${elementName}">${elementName}</span>
       </div>
-      <textarea class="ag-popup-comment" placeholder="Add your comment..." rows="3" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;outline:none;color:#1a1a1a;background:#f9fafb;"></textarea>
+      <textarea class="ag-popup-comment" placeholder="${t('popup.comment')}" rows="3" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;outline:none;color:#1a1a1a;background:#f9fafb;"></textarea>
       <div class="ag-popup-fields" style="display:flex;gap:8px;margin-top:8px;">
         <select data-field="intent" style="flex:1;border:1px solid #d1d5db;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#f9fafb;color:#1a1a1a;outline:none;cursor:pointer;">
-          <option value="fix">Fix</option>
-          <option value="change">Change</option>
-          <option value="question">Question</option>
-          <option value="approve">Approve</option>
+          <option value="fix">${t('popup.fix')}</option>
+          <option value="change">${t('popup.change')}</option>
+          <option value="question">${t('popup.question')}</option>
+          <option value="approve">${t('popup.approve')}</option>
         </select>
         <select data-field="severity" style="flex:1;border:1px solid #d1d5db;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;background:#f9fafb;color:#1a1a1a;outline:none;cursor:pointer;">
-          <option value="suggestion">Suggestion</option>
-          <option value="important">Important</option>
-          <option value="blocking">Blocking</option>
+          <option value="suggestion">${t('popup.suggestion')}</option>
+          <option value="important">${t('popup.important')}</option>
+          <option value="blocking">${t('popup.blocking')}</option>
         </select>
       </div>
       <div class="ag-popup-actions" style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
-        <button class="ag-popup-cancel" style="padding:5px 14px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#374151;font-size:13px;font-family:inherit;cursor:pointer;">Cancel</button>
-        <button class="ag-popup-submit" style="padding:5px 14px;border:none;border-radius:6px;background:#2563eb;color:#ffffff;font-size:13px;font-family:inherit;cursor:pointer;font-weight:500;">Submit</button>
+        <button class="ag-popup-cancel" style="padding:5px 14px;border:1px solid #d1d5db;border-radius:6px;background:#ffffff;color:#374151;font-size:13px;font-family:inherit;cursor:pointer;">${t('popup.cancel')}</button>
+        <button class="ag-popup-submit" style="padding:5px 14px;border:none;border-radius:6px;background:#2563eb;color:#ffffff;font-size:13px;font-family:inherit;cursor:pointer;font-weight:500;">${t('popup.submit')}</button>
       </div>
     `;
 

@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AnnotationPopup } from '../annotation-popup';
+import { setLocale, _resetLocale } from '../../../shared/i18n';
+
+// Ensure chrome.storage mock exists (needed by setLocale)
+if (!(globalThis as any).chrome) {
+  (globalThis as any).chrome = { storage: { local: { get: vi.fn(() => Promise.resolve({})), set: vi.fn(() => Promise.resolve()) } } };
+}
 
 describe('AnnotationPopup', () => {
   let container: HTMLDivElement;
@@ -14,6 +20,7 @@ describe('AnnotationPopup', () => {
   afterEach(() => {
     popup.destroy();
     container.remove();
+    _resetLocale();
   });
 
   it('shows popup with textarea', () => {
@@ -94,5 +101,16 @@ describe('AnnotationPopup', () => {
 
   it('is hidden by default', () => {
     expect(container.querySelector('.ag-popup')).toBeNull();
+  });
+
+  it('renders Chinese labels after setLocale("zh")', async () => {
+    await setLocale('zh');
+    const container = document.createElement('div');
+    const ap = new AnnotationPopup(container);
+    ap.show({ x: 100, y: 100 }, 'test-el');
+    const submitBtn = container.querySelector('.ag-popup-submit') as HTMLElement;
+    expect(submitBtn.textContent).toBe('提交');
+    const cancelBtn = container.querySelector('.ag-popup-cancel') as HTMLElement;
+    expect(cancelBtn.textContent).toBe('取消');
   });
 });
