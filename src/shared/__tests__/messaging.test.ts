@@ -40,4 +40,19 @@ describe('messaging', () => {
     const m3 = createMainWorldMessage('AG_PROBE_SOURCE', { elementSelector: '.btn' });
     expect(m3.type).toBe('AG_PROBE_SOURCE');
   });
+
+  it('createExtensionMessage creates GET_DOMAIN_STATE', () => {
+    const msg = createExtensionMessage('GET_DOMAIN_STATE', { hostname: 'example.com' });
+    expect(msg).toEqual({ type: 'GET_DOMAIN_STATE', payload: { hostname: 'example.com' } });
+  });
+
+  it('createExtensionMessage creates SET_DOMAIN_STATE', () => {
+    const msg = createExtensionMessage('SET_DOMAIN_STATE', { hostname: 'example.com', active: true });
+    expect(msg).toEqual({ type: 'SET_DOMAIN_STATE', payload: { hostname: 'example.com', active: true } });
+  });
+
+  it('createExtensionMessage creates DOMAIN_STATE', () => {
+    const msg = createExtensionMessage('DOMAIN_STATE', { active: false });
+    expect(msg).toEqual({ type: 'DOMAIN_STATE', payload: { active: false } });
+  });
 });

@@ -3,7 +3,10 @@ export const AGENTATION_SOURCE = 'agentation' as const;
 // === Extension Messages (Content Script <-> Background Service Worker) ===
 
 export type ExtensionMessage =
-  | { type: 'COPY_TO_CLIPBOARD'; payload: { text: string } };
+  | { type: 'COPY_TO_CLIPBOARD'; payload: { text: string } }
+  | { type: 'GET_DOMAIN_STATE'; payload?: { hostname: string } }
+  | { type: 'SET_DOMAIN_STATE'; payload: { hostname: string; active: boolean } | { active: boolean } }
+  | { type: 'DOMAIN_STATE'; payload: { active: boolean } };
 
 // === Main World Messages (MAIN World <-> Content Script via window.postMessage) ===
 
