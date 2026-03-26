@@ -55,19 +55,6 @@ export interface Annotation {
   elementBoundingBoxes?: Array<{ x: number; y: number; width: number; height: number }>;
   isFixed?: boolean;
 
-  // Area select — semantic info about DOM elements within the selected region
-  isAreaSelect?: boolean;
-  containedElements?: Array<{
-    selector: string;
-    elementPath: string;
-    elementTag: string;
-    cssClasses: string[];
-    textContent: string;
-    attributes: Record<string, string>;
-  }>;
-  commonAncestorPath?: string;
-  commonAncestorSelector?: string;
-
   // Metadata
   url?: string;
   intent?: AnnotationIntent;

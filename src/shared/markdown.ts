@@ -37,14 +37,6 @@ function elementLabel(a: Annotation): string {
 }
 
 function formatCompact(a: Annotation, num: number): string {
-  if (a.isAreaSelect) {
-    const parts = [`#${num}`, `[area]`];
-    if (a.commonAncestorPath) parts.push(`in \`${a.commonAncestorPath}\``);
-    const count = a.containedElements?.length ?? 0;
-    if (count > 0) parts.push(`(${count} elements)`);
-    parts.push(`— "${a.comment}"`);
-    return parts.join(' ');
-  }
   const parts = [`#${num}`];
   parts.push(`[${elementLabel(a)}]`);
   parts.push(`"${a.textContent}"`);
@@ -54,30 +46,9 @@ function formatCompact(a: Annotation, num: number): string {
   return parts.join(' ');
 }
 
-function formatAreaContainedElements(a: Annotation, verbose: boolean): string[] {
-  const lines: string[] = [];
-  if (!a.containedElements || a.containedElements.length === 0) return lines;
-  lines.push(`**Contained elements (${a.containedElements.length}):**`);
-  for (const el of a.containedElements) {
-    if (verbose) {
-      lines.push(`- \`<${el.elementTag}>\` "${el.textContent}" — selector: \`${el.selector}\`, path: \`${el.elementPath}\``);
-    } else {
-      const text = el.textContent ? ` "${el.textContent}"` : '';
-      lines.push(`- \`<${el.elementTag}${el.cssClasses.length ? '.' + el.cssClasses[0] : ''}>\`${text}`);
-    }
-  }
-  return lines;
-}
-
 function formatStandard(a: Annotation, num: number): string {
   const lines: string[] = [];
   lines.push(`## Annotation #${num} — "${a.comment}"`);
-  if (a.isAreaSelect) {
-    if (a.commonAncestorPath) lines.push(`**Region:** \`${a.commonAncestorPath}\``);
-    if (a.commonAncestorSelector) lines.push(`**Selector:** \`${a.commonAncestorSelector}\``);
-    lines.push(...formatAreaContainedElements(a, false));
-    return lines.join('\n');
-  }
   lines.push(`**Element:** \`<${a.elementTag} class="${a.cssClasses.join(' ')}">\` "${a.textContent}"`);
   if (a.selectedText) lines.push(`**Selected text:** "${a.selectedText}"`);
   lines.push(`**Path:** \`${a.elementPath}\``);
@@ -93,15 +64,6 @@ function formatStandard(a: Annotation, num: number): string {
 function formatDetailed(a: Annotation, num: number): string {
   const lines: string[] = [];
   lines.push(`## Annotation #${num} — "${a.comment}"`);
-  if (a.isAreaSelect) {
-    if (a.commonAncestorPath) lines.push(`**Region:** \`${a.commonAncestorPath}\``);
-    if (a.commonAncestorSelector) lines.push(`**Selector:** \`${a.commonAncestorSelector}\``);
-    lines.push('');
-    lines.push(...formatAreaContainedElements(a, true));
-    lines.push('');
-    lines.push(`**Styles:** \`${JSON.stringify(a.computedStyles)}\``);
-    return lines.join('\n');
-  }
   lines.push(`**Element:** \`<${a.elementTag} class="${a.cssClasses.join(' ')}">\``);
   lines.push(`**Selector:** \`${a.selector}\``);
   lines.push(`**Text:** "${a.textContent}"`);

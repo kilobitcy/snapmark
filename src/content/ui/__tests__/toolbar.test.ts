@@ -51,7 +51,7 @@ describe('Toolbar', () => {
   it('renders 7 action buttons when expanded', () => {
     toolbar.activate();
     const buttons = container.querySelectorAll('.ag-btn');
-    expect(buttons.length).toBe(7);
+    expect(buttons.length).toBe(6);
   });
 
   it('shows annotation count', () => {

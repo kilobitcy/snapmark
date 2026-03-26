@@ -63,6 +63,9 @@ async function init() {
   // Render i18n text
   renderI18n();
 
+  // Set version from manifest
+  document.getElementById('version')!.textContent = `v${chrome.runtime.getManifest().version}`;
+
   // Query domain state for current tab
   chrome.runtime.sendMessage({ type: 'GET_DOMAIN_STATE' }, (response) => {
     if (response?.payload) {

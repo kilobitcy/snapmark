@@ -8,7 +8,6 @@ const dictionaries: Record<Locale, Record<string, string>> = {
   en: {
     'toolbar.toggleMarkers': 'Toggle markers',
     'toolbar.freeze': 'Freeze/unfreeze',
-    'toolbar.areaMode': 'Area select mode',
     'toolbar.settings': 'Settings',
     'toolbar.copy': 'Copy annotations',
     'toolbar.send': 'Send',
@@ -44,7 +43,6 @@ const dictionaries: Record<Locale, Record<string, string>> = {
   zh: {
     'toolbar.toggleMarkers': '切换标记',
     'toolbar.freeze': '冻结/解冻',
-    'toolbar.areaMode': '区域选择模式',
     'toolbar.settings': '设置',
     'toolbar.copy': '复制标注',
     'toolbar.send': '发送',

@@ -3,8 +3,8 @@ import { Toolbar } from './ui/toolbar';
 import { HighlightManager } from './ui/highlight';
 import { AnnotationPopup } from './ui/annotation-popup';
 import { AnnotationStore } from './annotation-store';
-import { extractElementInfo, extractAreaElementInfo } from './capture/element-info';
-import { deepElementFromPoint, generateElementPath, generateUniqueSelector } from './capture/selector';
+import { extractElementInfo } from './capture/element-info';
+import { deepElementFromPoint, generateElementPath } from './capture/selector';
 import { getTextSelection } from './capture/text-selection';
 import { generateOutput, OutputLevel } from '../shared/markdown';
 import type { Annotation, PageContext } from '../shared/types';
@@ -106,18 +106,6 @@ function clearMultiSelectHighlights(): void {
   multiSelectHighlights.clear();
 }
 
-// === Area annotation state ===
-let areaMode = false;
-let areaDragging = false;
-let areaStartX = 0;
-let areaStartY = 0;
-let areaOverlay: HTMLElement | null = null;
-let pendingAreaBoundingBox: {
-  box: { x: number; y: number; width: number; height: number };
-  leafElements: Element[];
-  commonAncestor: Element | null;
-} | null = null;
-
 // Restore existing markers
 function refreshMarkers() {
   highlights.clearAllMarkers();
@@ -138,10 +126,6 @@ function bindToolbarEvents() {
       document.body.style.cursor = '';
       clearMultiSelectHighlights();
       pendingMultiSelectElements = [];
-      areaMode = false;
-      areaDragging = false;
-      if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
-      pendingAreaBoundingBox = null;
     }
   });
 
@@ -185,16 +169,6 @@ function bindToolbarEvents() {
     toolbar.setButtonActive('markersToggle', !visible);
   });
 
-  toolbar.on('areaMode', () => {
-    areaMode = !areaMode;
-    if (!areaMode) {
-      if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
-      areaDragging = false;
-    }
-    document.body.style.cursor = areaMode ? 'crosshair' : '';
-    toolbar.setButtonActive('areaMode', areaMode);
-  });
-
   toolbar.on('settings', () => {
     chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' });
   });
@@ -204,50 +178,6 @@ function bindToolbarEvents() {
 
 function bindPopupEvents() {
   popup.on('submit', async (data: { comment: string; intent: string; severity: string }) => {
-    // === Area annotation submit ===
-    if (pendingAreaBoundingBox) {
-      const { box, leafElements, commonAncestor } = pendingAreaBoundingBox;
-      pendingAreaBoundingBox = null;
-
-      // Extract semantic info from contained elements
-      const containedElements = leafElements.slice(0, 20).map(el => extractAreaElementInfo(el));
-
-      const ancestorPath = commonAncestor ? generateElementPath(commonAncestor) : '';
-      const ancestorSelector = commonAncestor ? generateUniqueSelector(commonAncestor) : '';
-
-      // Use common ancestor's info as the primary element if available
-      const primaryInfo = commonAncestor ? extractElementInfo(commonAncestor) : {};
-
-      store.add({
-        elementPath: ancestorPath || 'area',
-        selector: ancestorSelector,
-        elementTag: commonAncestor?.tagName.toLowerCase() || 'area',
-        cssClasses: primaryInfo.cssClasses || [],
-        attributes: primaryInfo.attributes || {},
-        textContent: '',
-        comment: data.comment,
-        intent: data.intent as any,
-        severity: data.severity as any,
-        boundingBox: box,
-        viewport: {
-          scrollX: window.scrollX,
-          scrollY: window.scrollY,
-          width: window.innerWidth,
-          height: window.innerHeight,
-        },
-        nearbyText: primaryInfo.nearbyText || [],
-        nearbyElements: primaryInfo.nearbyElements,
-        computedStyles: primaryInfo.computedStyles || {},
-        accessibility: primaryInfo.accessibility,
-        isAreaSelect: true,
-        containedElements,
-        commonAncestorPath: ancestorPath,
-        commonAncestorSelector: ancestorSelector,
-      });
-      refreshMarkers();
-      return;
-    }
-
     if (!pendingElement) return;
 
     const isMulti = pendingMultiSelectElements.length > 1;
@@ -305,7 +235,6 @@ function bindPopupEvents() {
 
   popup.on('cancel', () => {
     pendingElement = null;
-    pendingAreaBoundingBox = null;
     // Don't clear multi-select on cancel — let user keep selection and try again
   });
 }
@@ -348,10 +277,6 @@ function deactivate() {
     document.body.style.cursor = '';
     clearMultiSelectHighlights();
     pendingMultiSelectElements = [];
-    areaMode = false;
-    areaDragging = false;
-    if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
-    pendingAreaBoundingBox = null;
   }
   // NOTE: does NOT send SET_DOMAIN_STATE to avoid feedback loops
 }
@@ -374,21 +299,6 @@ document.body.addEventListener('mousemove', (e) => {
   if (!isActivated) return;
   if (!toolbar.isActive) return;
 
-  // Area mode drag: update the rectangle overlay
-  if (areaMode && areaDragging && areaOverlay) {
-    const x = Math.min(e.clientX, areaStartX);
-    const y = Math.min(e.clientY, areaStartY);
-    const w = Math.abs(e.clientX - areaStartX);
-    const h = Math.abs(e.clientY - areaStartY);
-    areaOverlay.style.left = `${x}px`;
-    areaOverlay.style.top = `${y}px`;
-    areaOverlay.style.width = `${w}px`;
-    areaOverlay.style.height = `${h}px`;
-    return;
-  }
-
-  if (areaMode) return; // In area mode but not dragging — skip hover highlight
-
   const el = deepElementFromPoint(e.clientX, e.clientY);
   if (el && !isAgentationElement(el)) {
     const name = generateElementPath(el, 2); // short path for tooltip
@@ -400,104 +310,9 @@ document.body.addEventListener('mousemove', (e) => {
   }
 });
 
-document.body.addEventListener('mousedown', (e) => {
-  if (!isActivated || !areaMode) return;
-  const target = e.target as Element;
-  if (isAgentationElement(target)) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  areaDragging = true;
-  areaStartX = e.clientX;
-  areaStartY = e.clientY;
-
-  // Create rectangle overlay
-  areaOverlay = document.createElement('div');
-  areaOverlay.setAttribute('data-agentation', 'area-overlay');
-  areaOverlay.style.cssText = `
-    position: fixed;
-    z-index: 2147483641;
-    pointer-events: none;
-    left: ${areaStartX}px;
-    top: ${areaStartY}px;
-    width: 0px;
-    height: 0px;
-    background: rgba(251, 191, 36, 0.2);
-    border: 2px dashed #f59e0b;
-    box-sizing: border-box;
-  `;
-  document.body.appendChild(areaOverlay);
-}, true);
-
-document.body.addEventListener('mouseup', (e) => {
-  if (!isActivated || !areaMode || !areaDragging) return;
-  e.preventDefault();
-  e.stopPropagation();
-
-  areaDragging = false;
-
-  const x = Math.min(e.clientX, areaStartX);
-  const y = Math.min(e.clientY, areaStartY);
-  const width = Math.abs(e.clientX - areaStartX);
-  const height = Math.abs(e.clientY - areaStartY);
-
-  if (areaOverlay) { areaOverlay.remove(); areaOverlay = null; }
-
-  if (width < 5 || height < 5) return; // too small, ignore
-
-  // Collect all visible DOM elements within the selected rectangle
-  const areaRect = { left: x, top: y, right: x + width, bottom: y + height };
-  const allElements = document.body.querySelectorAll('*');
-  const contained: Element[] = [];
-  for (const el of allElements) {
-    if (isAgentationElement(el)) continue;
-    const r = el.getBoundingClientRect();
-    // Element must be visible and overlap substantially with the area
-    if (r.width === 0 || r.height === 0) continue;
-    if (r.left >= areaRect.left && r.top >= areaRect.top &&
-        r.right <= areaRect.right && r.bottom <= areaRect.bottom) {
-      contained.push(el);
-    }
-  }
-
-  // Filter to leaf-most elements (remove ancestors whose children are already in the set)
-  const leafElements = contained.filter(el =>
-    !contained.some(other => other !== el && el.contains(other))
-  );
-
-  // Find common ancestor
-  let commonAncestor: Element | null = null;
-  if (leafElements.length > 0) {
-    commonAncestor = leafElements[0];
-    for (let i = 1; i < leafElements.length; i++) {
-      while (commonAncestor && !commonAncestor.contains(leafElements[i])) {
-        commonAncestor = commonAncestor.parentElement;
-      }
-    }
-  }
-
-  const elementCount = leafElements.length;
-  const label = commonAncestor
-    ? `Area: ${elementCount} elements in ${generateElementPath(commonAncestor, 2)}`
-    : `Area (${width}x${height})`;
-
-  popup.show({ x: e.clientX, y: e.clientY }, label);
-
-  // Store area info for submit handler
-  pendingAreaBoundingBox = {
-    box: { x: x + window.scrollX, y: y + window.scrollY, width, height },
-    leafElements,
-    commonAncestor,
-  };
-  pendingElement = null; // area annotation, not element-based
-}, true);
-
 document.body.addEventListener('click', (e) => {
   if (!isActivated) return;
   if (!toolbar.isActive) return;
-  if (areaMode) return; // area mode uses mousedown/mouseup
-
   const el = deepElementFromPoint(e.clientX, e.clientY);
   if (!el || isAgentationElement(el)) return;
 

@@ -15,7 +15,7 @@ export class AnnotationStore {
   add(partial: Partial<Annotation>): Annotation {
     const annotation: Annotation = {
       ...partial,
-      id: crypto.randomUUID(),
+      id: self.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       timestamp: Date.now(),
     } as Annotation;
     this.annotations.push(annotation);

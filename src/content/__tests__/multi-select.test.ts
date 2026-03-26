@@ -39,26 +39,4 @@ describe('multi-select logic', () => {
     expect(elements).toEqual(['a']);
   });
 
-  it('area bounding box is stored correctly', () => {
-    const startX = 100, startY = 50, endX = 300, endY = 200;
-    const box = {
-      x: Math.min(endX, startX),
-      y: Math.min(endY, startY),
-      width: Math.abs(endX - startX),
-      height: Math.abs(endY - startY),
-    };
-    expect(box).toEqual({ x: 100, y: 50, width: 200, height: 150 });
-  });
-
-  it('area bounding box handles reversed drag direction', () => {
-    // Drag from bottom-right to top-left
-    const startX = 300, startY = 200, endX = 100, endY = 50;
-    const box = {
-      x: Math.min(endX, startX),
-      y: Math.min(endY, startY),
-      width: Math.abs(endX - startX),
-      height: Math.abs(endY - startY),
-    };
-    expect(box).toEqual({ x: 100, y: 50, width: 200, height: 150 });
-  });
 });

@@ -1,6 +1,6 @@
 import { t } from '../../shared/i18n';
 
-type ToolbarEvent = 'toggle' | 'copy' | 'clear' | 'freeze' | 'send' | 'settings' | 'markersToggle' | 'areaMode';
+type ToolbarEvent = 'toggle' | 'copy' | 'clear' | 'freeze' | 'send' | 'settings' | 'markersToggle';
 
 type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
@@ -8,7 +8,6 @@ function getButtonDefs(): Array<{ action: ToolbarEvent; label: string; title: st
   return [
     { action: 'markersToggle', label: '⦿', title: t('toolbar.toggleMarkers') },
     { action: 'freeze',        label: '⏸', title: t('toolbar.freeze') },
-    { action: 'areaMode',      label: '▢', title: t('toolbar.areaMode') },
     { action: 'settings',      label: '⚙', title: t('toolbar.settings') },
     { action: 'copy',          label: '📋', title: t('toolbar.copy') },
     { action: 'send',          label: '➤', title: t('toolbar.send') },
