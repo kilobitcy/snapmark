@@ -86,15 +86,15 @@ The SnapMark toolbar ("A" badge) appears on every website immediately after enab
 
 ### On Deactivate
 
-- `toolbar.destroy()`, `popup.hide()`
+- `toolbar.deactivate()` (resets state, renders badge — but badge is invisible because host is hidden), `popup.hide()`
 - **Hide** Shadow DOM host (`agentation-root` element) via `display: none` rather than removing it — avoids stale singleton reference in `host.ts` and re-initialization overhead on re-activate
 - Event listeners on `document.body` remain registered but are guarded by an `isActivated` flag. Handlers check `isActivated` first (domain-level gate); `toolbar.isActive` remains the inner toggle for element selection mode. When `isActivated` is false, all handlers are no-ops.
 - Notify background: `SET_DOMAIN_STATE { hostname, active: false }`
 
 ### On Re-Activate
 
-- **Show** Shadow DOM host (`display: ''`)
-- Re-render toolbar (already handles this via `toolbar.activate()`)
+- If instances not yet created (first activation): run full "On Activate" flow above
+- If instances already exist (was previously deactivated): **show** Shadow DOM host (`display: ''`) + `toolbar.activate()`
 
 ### Activation Triggers
 
