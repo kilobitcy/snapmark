@@ -2,62 +2,89 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Agentation Settings</title>
+  <title>SnapMark</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { width: 320px; font-family: system-ui, sans-serif; padding: 16px; background: #fff; color: #1a1a1a; }
-    h1 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    h1 span { color: #3b82f6; }
+    .header { display: flex; align-items: center; margin-bottom: 14px; }
+    .header h1 { font-size: 16px; flex: 1; display: flex; align-items: center; gap: 6px; }
+    .header h1 span { color: #3b82f6; }
+    .lang-btn { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer; color: #475569; }
+    .lang-btn:hover { background: #e2e8f0; }
+    .activation { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 14px; }
+    .activation-label { font-size: 13px; font-weight: 600; }
+    .activation-domain { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .toggle-switch { position: relative; width: 44px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 24px; transition: 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: #3b82f6; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+    .divider { height: 1px; background: #f1f5f9; margin: 14px 0; }
     .setting { margin-bottom: 12px; }
     .setting label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
-    .setting select, .setting input[type="text"] {
-      width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;
-      font-size: 13px; background: #fafafa;
-    }
-    .setting select:focus, .setting input:focus { outline: none; border-color: #3b82f6; }
-    .toggle { display: flex; align-items: center; justify-content: space-between; }
-    .toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: #3b82f6; }
+    .setting select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fafafa; }
+    .setting select:focus { outline: none; border-color: #3b82f6; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #3b82f6; }
     .version { margin-top: 12px; text-align: center; font-size: 11px; color: #ccc; }
   </style>
-  <script type="module" crossorigin src="/assets/popup.html-BycPRpKi.js"></script>
+  <script type="module" crossorigin src="/assets/popup.html-B-s3feXK.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/i18n-DF5YuwAI.js">
 </head>
 <body>
-  <h1><span>A</span> Agentation</h1>
+  <div class="header">
+    <h1><span>A</span> <span id="title">SnapMark</span></h1>
+    <button class="lang-btn" id="langToggle">EN</button>
+  </div>
+
+  <div class="activation">
+    <div>
+      <div class="activation-label" id="activateLabel">Activate on this site</div>
+      <div class="activation-domain" id="domainLabel"></div>
+    </div>
+    <label class="toggle-switch">
+      <input type="checkbox" id="activateToggle">
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+
+  <div class="divider"></div>
 
   <div class="setting">
-    <label>Output Detail Level</label>
+    <label id="outputLevelLabel">Output Detail Level</label>
     <select id="outputLevel">
-      <option value="compact">Compact</option>
-      <option value="standard" selected>Standard</option>
-      <option value="detailed">Detailed</option>
-      <option value="forensic">Forensic</option>
+      <option value="compact" id="optCompact">Compact</option>
+      <option value="standard" selected id="optStandard">Standard</option>
+      <option value="detailed" id="optDetailed">Detailed</option>
+      <option value="forensic" id="optForensic">Forensic</option>
     </select>
   </div>
 
   <div class="setting">
-    <label>React Filter Mode</label>
+    <label id="reactFilterLabel">React Filter Mode</label>
     <select id="reactFilter">
-      <option value="all">All</option>
-      <option value="filtered" selected>Filtered</option>
-      <option value="smart">Smart</option>
+      <option value="all" id="optReactAll">All</option>
+      <option value="filtered" selected id="optReactFiltered">Filtered</option>
+      <option value="smart" id="optReactSmart">Smart</option>
     </select>
   </div>
 
   <div class="setting">
-    <label>Theme</label>
+    <label id="themeLabel">Theme</label>
     <select id="theme">
-      <option value="auto" selected>Auto (follow system)</option>
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
+      <option value="auto" selected id="optThemeAuto">Auto (follow system)</option>
+      <option value="light" id="optThemeLight">Light</option>
+      <option value="dark" id="optThemeDark">Dark</option>
     </select>
   </div>
 
-  <div class="setting toggle">
-    <label>Block Page Interactions</label>
+  <div class="setting toggle-row">
+    <label id="blockLabel">Block Page Interactions</label>
     <input type="checkbox" id="blockInteractions" checked>
   </div>
 
-  <div class="version">v0.1.0</div>
+  <div class="version">v0.1.7</div>
 
 </body>
 </html>
