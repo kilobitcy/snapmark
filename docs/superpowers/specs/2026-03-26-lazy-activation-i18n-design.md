@@ -88,7 +88,7 @@ The SnapMark toolbar ("A" badge) appears on every website immediately after enab
 
 - `toolbar.destroy()`, `popup.hide()`
 - **Hide** Shadow DOM host (`agentation-root` element) via `display: none` rather than removing it — avoids stale singleton reference in `host.ts` and re-initialization overhead on re-activate
-- Event listeners on `document.body` remain registered but are guarded by an `isActivated` flag (extending the existing `toolbar.isActive` pattern). When inactive, handlers are no-ops.
+- Event listeners on `document.body` remain registered but are guarded by an `isActivated` flag. Handlers check `isActivated` first (domain-level gate); `toolbar.isActive` remains the inner toggle for element selection mode. When `isActivated` is false, all handlers are no-ops.
 - Notify background: `SET_DOMAIN_STATE { hostname, active: false }`
 
 ### On Re-Activate
@@ -100,23 +100,23 @@ The SnapMark toolbar ("A" badge) appears on every website immediately after enab
 
 - Background query returns `active: true`
 - Popup toggle switch
-- Keyboard shortcut `Ctrl+Shift+F`
+- Keyboard shortcut `Ctrl+Shift+F` — now toggles **domain-level activation** (create/show or hide UI), replacing the previous toolbar-only toggle. When activated via shortcut, it also updates the stored domain state.
 
 ## 5. Message Protocol
 
-All new message types are added to the `ExtensionMessage` union in `src/shared/messaging.ts` for type safety.
+All new message types are added to the `ExtensionMessage` union in `src/shared/messaging.ts` for type safety. New messages follow the existing `{ type, payload }` convention (matching `COPY_TO_CLIPBOARD`).
 
 ```
 content → background:
-  { type: 'GET_DOMAIN_STATE', hostname: string }
-  { type: 'SET_DOMAIN_STATE', hostname: string, active: boolean }
+  { type: 'GET_DOMAIN_STATE', payload: { hostname: string } }
+  { type: 'SET_DOMAIN_STATE', payload: { hostname: string, active: boolean } }
 
 background → content (chrome.tabs.sendMessage):
-  { type: 'DOMAIN_STATE', active: boolean }
+  { type: 'DOMAIN_STATE', payload: { active: boolean } }
 
 popup → background:
   { type: 'GET_DOMAIN_STATE' }
-  { type: 'SET_DOMAIN_STATE', active: boolean }
+  { type: 'SET_DOMAIN_STATE', payload: { active: boolean } }
 ```
 
 - **Popup messages omit hostname** — background infers it from the active tab via `chrome.tabs.query({ active: true, currentWindow: true })`.
