@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Toolbar } from '../toolbar';
+import { setLocale, _resetLocale } from '../../../shared/i18n';
+
+// Ensure chrome.storage mock exists (needed by setLocale)
+if (!(globalThis as any).chrome) {
+  (globalThis as any).chrome = { storage: { local: { get: vi.fn(() => Promise.resolve({})), set: vi.fn(() => Promise.resolve()) } } };
+}
 
 describe('Toolbar', () => {
   let container: HTMLDivElement;
@@ -14,6 +20,7 @@ describe('Toolbar', () => {
   afterEach(() => {
     toolbar.destroy();
     container.remove();
+    _resetLocale();
   });
 
   it('starts in collapsed state', () => {
@@ -99,5 +106,14 @@ describe('Toolbar', () => {
     toolbar.activate();
     toolbar.destroy();
     expect(container.children.length).toBe(0);
+  });
+
+  it('renders Chinese tooltips after setLocale("zh")', async () => {
+    await setLocale('zh');
+    const container = document.createElement('div');
+    const tb = new Toolbar(container);
+    tb.activate();
+    const btn = container.querySelector('[data-action="markersToggle"]') as HTMLElement;
+    expect(btn.title).toBe('切换标记');
   });
 });

@@ -1,16 +1,20 @@
+import { t } from '../../shared/i18n';
+
 type ToolbarEvent = 'toggle' | 'copy' | 'clear' | 'freeze' | 'send' | 'settings' | 'markersToggle' | 'areaMode';
 
 type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
-const BUTTON_DEFS: Array<{ action: ToolbarEvent; label: string; title: string }> = [
-  { action: 'markersToggle', label: '⦿', title: 'Toggle markers' },
-  { action: 'freeze',        label: '⏸', title: 'Freeze/unfreeze' },
-  { action: 'areaMode',      label: '▢', title: 'Area select mode' },
-  { action: 'settings',      label: '⚙', title: 'Settings' },
-  { action: 'copy',          label: '📋', title: 'Copy annotations' },
-  { action: 'send',          label: '➤', title: 'Send' },
-  { action: 'clear',         label: '🗑', title: 'Clear annotations' },
-];
+function getButtonDefs(): Array<{ action: ToolbarEvent; label: string; title: string }> {
+  return [
+    { action: 'markersToggle', label: '⦿', title: t('toolbar.toggleMarkers') },
+    { action: 'freeze',        label: '⏸', title: t('toolbar.freeze') },
+    { action: 'areaMode',      label: '▢', title: t('toolbar.areaMode') },
+    { action: 'settings',      label: '⚙', title: t('toolbar.settings') },
+    { action: 'copy',          label: '📋', title: t('toolbar.copy') },
+    { action: 'send',          label: '➤', title: t('toolbar.send') },
+    { action: 'clear',         label: '🗑', title: t('toolbar.clear') },
+  ];
+}
 
 const STATUS_COLORS: Record<ConnectionStatus, string> = {
   connected: '#22c55e',
@@ -29,6 +33,7 @@ export class Toolbar {
 
   // Drag state
   private dragging = false;
+  private didDrag = false;
   private dragOffsetX = 0;
   private dragOffsetY = 0;
 
@@ -47,6 +52,7 @@ export class Toolbar {
 
     this._onMouseMove = (e: MouseEvent) => {
       if (!this.dragging) return;
+      this.didDrag = true;
       const padding = 20;
       const el = this.container.firstElementChild as HTMLElement | null;
       if (!el) return;
@@ -70,6 +76,8 @@ export class Toolbar {
 
     this._onMouseUp = () => {
       this.dragging = false;
+      // Reset didDrag after a microtask so the click event (which fires after mouseup) can check it
+      setTimeout(() => { this.didDrag = false; }, 0);
     };
 
     document.addEventListener('mousemove', this._onMouseMove);
@@ -90,14 +98,21 @@ export class Toolbar {
         this.panelPosY = rect.top;
       }
     }
-    // Clamp panel position to keep it within the viewport
-    const padding = 20;
-    const panelWidth = 280; // minWidth of the panel
-    const panelHeight = 90; // approximate header + button row height
-    this.panelPosX = Math.min(Math.max(padding, this.panelPosX), window.innerWidth - panelWidth - padding);
-    this.panelPosY = Math.min(Math.max(padding, this.panelPosY), window.innerHeight - panelHeight - padding);
     this.isActive = true;
     this.render();
+    // Clamp panel position after render so we use the actual element size
+    const padding = 20;
+    const el = this.container.firstElementChild as HTMLElement | null;
+    if (el) {
+      const w = el.offsetWidth || 300;
+      const h = el.offsetHeight || 90;
+      this.panelPosX = Math.min(Math.max(padding, this.panelPosX), window.innerWidth - w - padding);
+      this.panelPosY = Math.min(Math.max(padding, this.panelPosY), window.innerHeight - h - padding);
+      el.style.left = `${this.panelPosX}px`;
+      el.style.top = `${this.panelPosY}px`;
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+    }
   }
 
   deactivate(): void {
@@ -248,9 +263,10 @@ export class Toolbar {
     badge.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
     badge.style.cursor = 'pointer';
     badge.textContent = 'A';
-    badge.title = 'Agentation';
+    badge.title = t('toolbar.title');
 
     badge.addEventListener('click', () => {
+      if (this.didDrag) return;
       this.emit('toggle');
     });
 
@@ -299,7 +315,7 @@ export class Toolbar {
     statusDot.title = this.connectionStatus;
 
     const titleSpan = document.createElement('span');
-    titleSpan.textContent = 'Agentation';
+    titleSpan.textContent = t('toolbar.title');
     titleSpan.style.flexGrow = '1';
 
     const countBadge = document.createElement('span');
@@ -343,7 +359,7 @@ export class Toolbar {
       padding: 8px 10px;
     `;
 
-    for (const def of BUTTON_DEFS) {
+    for (const def of getButtonDefs()) {
       const btn = document.createElement('button');
       btn.className = 'ag-btn';
       btn.dataset.action = def.action;
