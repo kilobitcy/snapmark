@@ -23,17 +23,28 @@ export class AnnotationPopup {
 
     this.popupEl = document.createElement('div');
     this.popupEl.className = 'ag-popup';
+
+    const popupWidth = 320;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    // Clamp left so the popup stays within viewport
+    let left = position.x;
+    if (left + popupWidth > viewportWidth) {
+      left = Math.max(10, viewportWidth - popupWidth - 10);
+    }
+
     Object.assign(this.popupEl.style, {
       position: 'fixed',
-      left: `${position.x}px`,
+      left: `${left}px`,
       top: `${position.y + 10}px`,
       zIndex: '2147483647',
       background: '#ffffff',
       borderRadius: '8px',
       boxShadow: '0 4px 24px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.10)',
       padding: '14px 16px 12px',
-      minWidth: '280px',
-      maxWidth: '360px',
+      width: `${popupWidth}px`,
+      maxWidth: `calc(100vw - 20px)`,
+      boxSizing: 'border-box',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontSize: '13px',
       color: '#1a1a1a',
@@ -88,16 +99,14 @@ export class AnnotationPopup {
 
     // Adjust position if popup overflows viewport bottom
     const rect = this.popupEl.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
     if (rect.bottom > viewportHeight) {
       // Flip above the element
       const flippedTop = position.y - rect.height - 10;
-      this.popupEl.style.top = `${flippedTop > 0 ? flippedTop : 0}px`;
+      this.popupEl.style.top = `${flippedTop > 0 ? flippedTop : 10}px`;
     }
-    // Adjust if popup overflows viewport right
-    const viewportWidth = window.innerWidth;
+    // Double-check right overflow after render (actual width may differ)
     if (rect.right > viewportWidth) {
-      this.popupEl.style.left = `${Math.max(0, viewportWidth - rect.width - 10)}px`;
+      this.popupEl.style.left = `${Math.max(10, viewportWidth - rect.width - 10)}px`;
     }
 
     (this.popupEl.querySelector('textarea') as HTMLTextAreaElement).focus();
