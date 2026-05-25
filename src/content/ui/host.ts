@@ -39,6 +39,15 @@ const STYLES = `
 #agentation-popups {
   pointer-events: auto;
 }
+
+#agentation-capture {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+  background: transparent;
+  cursor: crosshair;
+}
 `;
 
 let shadowRoot: ShadowRoot | null = null;
@@ -59,7 +68,7 @@ export function createAgentationHost(): ShadowRoot {
   style.textContent = STYLES;
   shadowRoot.appendChild(style);
 
-  for (const id of ['agentation-toolbar', 'agentation-highlights', 'agentation-markers', 'agentation-popups']) {
+  for (const id of ['agentation-capture', 'agentation-toolbar', 'agentation-highlights', 'agentation-markers', 'agentation-popups']) {
     const div = document.createElement('div');
     div.id = id;
     shadowRoot.appendChild(div);
@@ -86,4 +95,18 @@ export function hideAgentationHost(): void {
 export function showAgentationHost(): void {
   const host = document.querySelector('agentation-root') as HTMLElement | null;
   if (host) host.style.display = '';
+}
+
+export function enableCaptureLayer(): void {
+  const capture = shadowRoot?.getElementById('agentation-capture') as HTMLElement | null;
+  if (capture) capture.style.pointerEvents = 'auto';
+}
+
+export function disableCaptureLayer(): void {
+  const capture = shadowRoot?.getElementById('agentation-capture') as HTMLElement | null;
+  if (capture) capture.style.pointerEvents = 'none';
+}
+
+export function getCaptureLayer(): HTMLElement | null {
+  return (shadowRoot?.getElementById('agentation-capture') as HTMLElement | null) ?? null;
 }

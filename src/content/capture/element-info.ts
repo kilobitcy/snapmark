@@ -8,8 +8,14 @@ const SHORT_TEXT_LIMIT = 25;
 const LONG_TEXT_LIMIT = 40;
 
 const ALLOWED_ATTR_PREFIXES = ['data-', 'aria-'];
-const ALLOWED_ATTR_EXACT = new Set(['id', 'role', 'href', 'name', 'type', 'placeholder']);
+const ALLOWED_ATTR_EXACT = new Set([
+  'id', 'role', 'href', 'name', 'type', 'placeholder',
+  'disabled', 'readonly', 'required', 'checked', 'selected',
+  'value', 'min', 'max', 'step', 'pattern', 'maxlength', 'minlength',
+]);
 const SKIP_ATTRS = new Set(['class', 'style']);
+
+const DISABLEABLE_TAGS = new Set(['button', 'input', 'select', 'textarea', 'fieldset', 'optgroup', 'option']);
 
 const COMPUTED_STYLE_KEYS: (keyof CSSStyleDeclaration & string)[] = [
   'color',
@@ -91,9 +97,18 @@ function extractAccessibility(el: Element): Annotation['accessibility'] {
   const tabIndex = (el as HTMLElement).tabIndex ?? -1;
   const focusable = INTERACTIVE_TAGS.has(tag) || tabIndex >= 0;
 
+  const disabled = DISABLEABLE_TAGS.has(tag)
+    ? ((el as HTMLButtonElement).disabled === true || el.hasAttribute('disabled'))
+    : false;
+
   return {
     role: el.getAttribute('role') ?? undefined,
     ariaLabel: el.getAttribute('aria-label') ?? undefined,
+    ariaDisabled: el.getAttribute('aria-disabled') ?? undefined,
+    ariaInvalid: el.getAttribute('aria-invalid') ?? undefined,
+    ariaExpanded: el.getAttribute('aria-expanded') ?? undefined,
+    ariaChecked: el.getAttribute('aria-checked') ?? undefined,
+    disabled,
     focusable,
   };
 }

@@ -67,6 +67,29 @@ describe('generateOutput', () => {
       expect(out).toContain('**Selected text:**');
       expect(out).toContain('Sub');
     });
+    it('shows **State:** disabled when accessibility.disabled is true', () => {
+      const a = { ...base, accessibility: { focusable: true, disabled: true } };
+      const out = generateOutput([a], 'standard');
+      expect(out).toContain('**State:**');
+      expect(out).toContain('disabled');
+    });
+    it('shows **State:** with readonly/required when attributes contain them', () => {
+      const a = { ...base, attributes: { ...base.attributes, readonly: '', required: '' } };
+      const out = generateOutput([a], 'standard');
+      expect(out).toContain('**State:**');
+      expect(out).toContain('readonly');
+      expect(out).toContain('required');
+    });
+    it('shows **State:** aria-disabled when accessibility.ariaDisabled is "true"', () => {
+      const a = { ...base, accessibility: { focusable: true, ariaDisabled: 'true' } };
+      const out = generateOutput([a], 'standard');
+      expect(out).toContain('**State:**');
+      expect(out).toContain('aria-disabled');
+    });
+    it('does NOT show **State:** when no state flags present', () => {
+      const out = generateOutput([base], 'standard');
+      expect(out).not.toContain('**State:**');
+    });
   });
 
   describe('detailed', () => {
@@ -85,6 +108,16 @@ describe('generateOutput', () => {
       const a = { ...base, framework: { name: 'react', componentName: 'Btn', props: { disabled: false } } };
       const out = generateOutput([a], 'detailed');
       expect(out).toContain('**Props:**');
+    });
+    it('includes **Attributes:** line when attributes is non-empty', () => {
+      const out = generateOutput([base], 'detailed');
+      expect(out).toContain('**Attributes:**');
+      expect(out).toContain('data-testid');
+    });
+    it('does NOT include **Attributes:** line when attributes is empty', () => {
+      const a = { ...base, attributes: {} };
+      const out = generateOutput([a], 'detailed');
+      expect(out).not.toContain('**Attributes:**');
     });
   });
 

@@ -36,6 +36,17 @@ function elementLabel(a: Annotation): string {
   return `${a.elementTag}${classes}`;
 }
 
+function collectStateFlags(a: Annotation): string[] {
+  const flags: string[] = [];
+  if (a.accessibility?.disabled) flags.push('disabled');
+  if (a.attributes && 'readonly' in a.attributes) flags.push('readonly');
+  if (a.attributes && 'required' in a.attributes) flags.push('required');
+  if (a.attributes && 'checked' in a.attributes) flags.push('checked');
+  if (a.accessibility?.ariaDisabled === 'true') flags.push('aria-disabled');
+  if (a.accessibility?.ariaInvalid === 'true') flags.push('aria-invalid');
+  return flags;
+}
+
 function formatCompact(a: Annotation, num: number): string {
   const parts = [`#${num}`];
   parts.push(`[${elementLabel(a)}]`);
@@ -50,6 +61,8 @@ function formatStandard(a: Annotation, num: number): string {
   const lines: string[] = [];
   lines.push(`## Annotation #${num} — "${a.comment}"`);
   lines.push(`**Element:** \`<${a.elementTag} class="${a.cssClasses.join(' ')}">\` "${a.textContent}"`);
+  const stateFlags = collectStateFlags(a);
+  if (stateFlags.length) lines.push(`**State:** \`${stateFlags.join(', ')}\``);
   if (a.selectedText) lines.push(`**Selected text:** "${a.selectedText}"`);
   lines.push(`**Path:** \`${a.elementPath}\``);
   if (a.framework) {
@@ -67,6 +80,11 @@ function formatDetailed(a: Annotation, num: number): string {
   lines.push(`**Element:** \`<${a.elementTag} class="${a.cssClasses.join(' ')}">\``);
   lines.push(`**Selector:** \`${a.selector}\``);
   lines.push(`**Text:** "${a.textContent}"`);
+  const stateFlags = collectStateFlags(a);
+  if (stateFlags.length) lines.push(`**State:** \`${stateFlags.join(', ')}\``);
+  if (a.attributes && Object.keys(a.attributes).length) {
+    lines.push(`**Attributes:** \`${JSON.stringify(a.attributes)}\``);
+  }
   if (a.selectedText) lines.push(`**Selected text:** "${a.selectedText}"`);
   lines.push('');
   if (a.framework) {

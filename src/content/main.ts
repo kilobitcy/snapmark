@@ -1,4 +1,11 @@
-import { createAgentationHost, hideAgentationHost, showAgentationHost } from './ui/host';
+import {
+  createAgentationHost,
+  hideAgentationHost,
+  showAgentationHost,
+  enableCaptureLayer,
+  disableCaptureLayer,
+  getCaptureLayer,
+} from './ui/host';
 import { Toolbar } from './ui/toolbar';
 import { HighlightManager } from './ui/highlight';
 import { AnnotationPopup } from './ui/annotation-popup';
@@ -120,7 +127,10 @@ function refreshMarkers() {
 function bindToolbarEvents() {
   toolbar.on('toggle', () => {
     toolbar.toggle();
-    if (!toolbar.isActive) {
+    if (toolbar.isActive) {
+      enableCaptureLayer();
+    } else {
+      disableCaptureLayer();
       highlights.clearHoverHighlight();
       popup.hide();
       document.body.style.cursor = '';
@@ -256,12 +266,14 @@ function activate() {
     popup = new AnnotationPopup(shadow.getElementById('agentation-popups')!);
     bindToolbarEvents();
     bindPopupEvents();
+    bindCaptureEvents();
     instancesCreated = true;
   } else {
     showAgentationHost();
   }
 
   toolbar.activate();
+  enableCaptureLayer();
   refreshMarkers();
 }
 
@@ -273,6 +285,7 @@ function deactivate() {
     toolbar.deactivate();
     popup.hide();
     highlights.clearHoverHighlight();
+    disableCaptureLayer();
     hideAgentationHost();
     document.body.style.cursor = '';
     clearMultiSelectHighlights();
@@ -294,26 +307,39 @@ function toggleActivation() {
 }
 
 // === Mouse Events (when active) ===
+// Bound to the capture layer (a transparent full-viewport overlay inside the
+// shadow root). This bypasses the browser's habit of swallowing mouse events
+// on disabled form controls — when the layer's pointer-events is `auto`, every
+// click in the viewport lands on the layer first. We temporarily turn it off
+// to call elementFromPoint so we can resolve the real target underneath.
 
-document.body.addEventListener('mousemove', (e) => {
-  if (!isActivated) return;
-  if (!toolbar.isActive) return;
+function elementUnderCursor(x: number, y: number): Element | null {
+  disableCaptureLayer();
+  try {
+    return deepElementFromPoint(x, y);
+  } finally {
+    enableCaptureLayer();
+  }
+}
 
-  const el = deepElementFromPoint(e.clientX, e.clientY);
+function onCaptureMouseMove(e: MouseEvent): void {
+  if (!isActivated || !toolbar.isActive) return;
+
+  const el = elementUnderCursor(e.clientX, e.clientY);
   if (el && !isAgentationElement(el)) {
-    const name = generateElementPath(el, 2); // short path for tooltip
+    const name = generateElementPath(el, 2);
     highlights.showHoverHighlight(el, name);
     document.body.style.cursor = isTextElement(el) ? 'text' : 'crosshair';
   } else {
     highlights.clearHoverHighlight();
     document.body.style.cursor = '';
   }
-});
+}
 
-document.body.addEventListener('click', (e) => {
-  if (!isActivated) return;
-  if (!toolbar.isActive) return;
-  const el = deepElementFromPoint(e.clientX, e.clientY);
+function onCaptureClick(e: MouseEvent): void {
+  if (!isActivated || !toolbar.isActive) return;
+
+  const el = elementUnderCursor(e.clientX, e.clientY);
   if (!el || isAgentationElement(el)) return;
 
   e.preventDefault();
@@ -329,17 +355,15 @@ document.body.addEventListener('click', (e) => {
       pendingMultiSelectElements.push(el);
       addMultiSelectHighlight(el);
     }
-    return; // Don't show popup yet
+    return;
   }
 
-  // Normal click: if there are multi-select elements, include them + this element
   if (pendingMultiSelectElements.length > 0) {
-    // Add current element to multi-select set if not already there
     if (!pendingMultiSelectElements.includes(el)) {
       pendingMultiSelectElements.push(el);
       addMultiSelectHighlight(el);
     }
-    pendingElement = el; // primary element
+    pendingElement = el;
     const name = generateElementPath(el, 2);
     popup.show({ x: e.clientX, y: e.clientY }, `Multi-select (${pendingMultiSelectElements.length} elements): ${name}`);
     return;
@@ -348,7 +372,14 @@ document.body.addEventListener('click', (e) => {
   pendingElement = el;
   const name = generateElementPath(el, 2);
   popup.show({ x: e.clientX, y: e.clientY }, name);
-}, true); // capture phase
+}
+
+function bindCaptureEvents(): void {
+  const captureEl = getCaptureLayer();
+  if (!captureEl) return;
+  captureEl.addEventListener('mousemove', onCaptureMouseMove);
+  captureEl.addEventListener('click', onCaptureClick, true);
+}
 
 // === Keyboard Shortcut ===
 

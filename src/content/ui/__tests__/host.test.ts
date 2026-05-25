@@ -1,5 +1,13 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { createAgentationHost, getAgentationShadow, _resetAgentationHost, hideAgentationHost, showAgentationHost } from '../host';
+import {
+  createAgentationHost,
+  getAgentationShadow,
+  _resetAgentationHost,
+  hideAgentationHost,
+  showAgentationHost,
+  enableCaptureLayer,
+  disableCaptureLayer,
+} from '../host';
 
 describe('createAgentationHost', () => {
   afterEach(() => {
@@ -63,5 +71,43 @@ describe('hideAgentationHost / showAgentationHost', () => {
     showAgentationHost();
     const host = document.querySelector('agentation-root') as HTMLElement;
     expect(host.style.display).toBe('');
+  });
+});
+
+describe('capture layer', () => {
+  afterEach(() => {
+    document.querySelector('agentation-root')?.remove();
+    _resetAgentationHost();
+  });
+
+  it('createAgentationHost includes agentation-capture container', () => {
+    const shadow = createAgentationHost();
+    expect(shadow.getElementById('agentation-capture')).not.toBeNull();
+  });
+
+  it('capture layer starts disabled (pointer-events: none)', () => {
+    const shadow = createAgentationHost();
+    const capture = shadow.getElementById('agentation-capture') as HTMLElement;
+    // Inline style is what enable/disable toggles; default is empty (CSS rule provides none).
+    expect(capture.style.pointerEvents === '' || capture.style.pointerEvents === 'none').toBe(true);
+  });
+
+  it('enableCaptureLayer sets pointer-events to auto', () => {
+    const shadow = createAgentationHost();
+    enableCaptureLayer();
+    const capture = shadow.getElementById('agentation-capture') as HTMLElement;
+    expect(capture.style.pointerEvents).toBe('auto');
+  });
+
+  it('disableCaptureLayer sets pointer-events to none', () => {
+    const shadow = createAgentationHost();
+    enableCaptureLayer();
+    disableCaptureLayer();
+    const capture = shadow.getElementById('agentation-capture') as HTMLElement;
+    expect(capture.style.pointerEvents).toBe('none');
+  });
+
+  it('enable/disable are no-ops when host not created', () => {
+    expect(() => { enableCaptureLayer(); disableCaptureLayer(); }).not.toThrow();
   });
 });

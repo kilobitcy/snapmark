@@ -126,4 +126,56 @@ describe('extractElementInfo', () => {
     expect(info.cssClasses).toContain('wrapper');
     expect(info.cssClasses).toContain('real-class');
   });
+
+  it('extracts disabled attribute on disabled button', () => {
+    document.body.innerHTML = '<button disabled>Submit</button>';
+    const el = document.querySelector('button')!;
+    const info = extractElementInfo(el);
+    expect(info.attributes).toHaveProperty('disabled');
+  });
+
+  it('sets accessibility.disabled=true for disabled form controls', () => {
+    document.body.innerHTML = '<button disabled>Submit</button>';
+    const el = document.querySelector('button')!;
+    const info = extractElementInfo(el);
+    expect(info.accessibility?.disabled).toBe(true);
+  });
+
+  it('sets accessibility.disabled=false for enabled form controls', () => {
+    document.body.innerHTML = '<button>Submit</button>';
+    const el = document.querySelector('button')!;
+    const info = extractElementInfo(el);
+    expect(info.accessibility?.disabled).toBe(false);
+  });
+
+  it('extracts readonly, required attributes on input', () => {
+    document.body.innerHTML = '<input type="text" readonly required value="x">';
+    const el = document.querySelector('input')!;
+    const info = extractElementInfo(el);
+    expect(info.attributes).toHaveProperty('readonly');
+    expect(info.attributes).toHaveProperty('required');
+    expect(info.attributes!['value']).toBe('x');
+  });
+
+  it('extracts checked attribute on checkbox', () => {
+    document.body.innerHTML = '<input type="checkbox" checked>';
+    const el = document.querySelector('input')!;
+    const info = extractElementInfo(el);
+    expect(info.attributes).toHaveProperty('checked');
+  });
+
+  it('extracts aria-disabled into accessibility', () => {
+    document.body.innerHTML = '<div role="button" aria-disabled="true">Fake disabled</div>';
+    const el = document.querySelector('div')!;
+    const info = extractElementInfo(el);
+    expect(info.accessibility?.ariaDisabled).toBe('true');
+  });
+
+  it('extracts aria-expanded and aria-checked', () => {
+    document.body.innerHTML = '<button aria-expanded="false" aria-checked="true">X</button>';
+    const el = document.querySelector('button')!;
+    const info = extractElementInfo(el);
+    expect(info.accessibility?.ariaExpanded).toBe('false');
+    expect(info.accessibility?.ariaChecked).toBe('true');
+  });
 });

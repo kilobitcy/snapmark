@@ -47,7 +47,16 @@ export interface Annotation {
   nearbyText: string[];
   nearbyElements?: Array<{ tag: string; text: string; classes: string[] }>;
   computedStyles: Record<string, string>;
-  accessibility?: { role?: string; ariaLabel?: string; focusable: boolean };
+  accessibility?: {
+    role?: string;
+    ariaLabel?: string;
+    ariaDisabled?: string;
+    ariaInvalid?: string;
+    ariaExpanded?: string;
+    ariaChecked?: string;
+    disabled?: boolean;
+    focusable: boolean;
+  };
   fullPath?: string;
 
   // Multi-select
