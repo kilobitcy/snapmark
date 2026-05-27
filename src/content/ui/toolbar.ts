@@ -52,13 +52,13 @@ export class Toolbar {
   private panelPosY = -1;
 
   // Bound event handlers for cleanup
-  private _onMouseMove: (e: MouseEvent) => void;
-  private _onMouseUp: (e: MouseEvent) => void;
+  private _onPointerMove: (e: PointerEvent) => void;
+  private _onPointerUp: (e: PointerEvent) => void;
 
   constructor(container: HTMLElement) {
     this.container = container;
 
-    this._onMouseMove = (e: MouseEvent) => {
+    this._onPointerMove = (e: PointerEvent) => {
       if (!this.dragging) return;
       this.didDrag = true;
       const padding = 20;
@@ -81,13 +81,13 @@ export class Toolbar {
       }
     };
 
-    this._onMouseUp = () => {
+    this._onPointerUp = () => {
       this.dragging = false;
       setTimeout(() => { this.didDrag = false; }, 0);
     };
 
-    document.addEventListener('mousemove', this._onMouseMove);
-    document.addEventListener('mouseup', this._onMouseUp);
+    document.addEventListener('pointermove', this._onPointerMove);
+    document.addEventListener('pointerup', this._onPointerUp);
 
     this.render();
   }
@@ -182,8 +182,8 @@ export class Toolbar {
   }
 
   destroy(): void {
-    document.removeEventListener('mousemove', this._onMouseMove);
-    document.removeEventListener('mouseup', this._onMouseUp);
+    document.removeEventListener('pointermove', this._onPointerMove);
+    document.removeEventListener('pointerup', this._onPointerUp);
     this.container.innerHTML = '';
     this.listeners.clear();
   }
@@ -223,6 +223,7 @@ export class Toolbar {
     el.style.boxSizing = 'border-box';
     el.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     el.style.userSelect = 'none';
+    el.style.touchAction = 'none';
     if (posX >= 0 && posY >= 0) {
       el.style.left = `${posX}px`;
       el.style.top = `${posY}px`;
@@ -233,7 +234,7 @@ export class Toolbar {
   }
 
   private attachDragHandler(el: HTMLElement): void {
-    el.addEventListener('mousedown', (e: MouseEvent) => {
+    el.addEventListener('pointerdown', (e: PointerEvent) => {
       if ((e.target as HTMLElement).closest('.ag-btn')) return;
       this.dragging = true;
       const rect = el.getBoundingClientRect();
